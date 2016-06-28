@@ -57,7 +57,7 @@ int curY = 0;
 String apps[] = {"S"};
 int iconAmount = (sizeof(apps) / sizeof(int)) - 1;
 
-char* icons[] = {"settings_icon.bmp"};
+char* icons[] = {"set_icon.bmp"};
 int iconX[] = {15, 80, 160};
 int iconY[] = {20, 70, 120};
 
@@ -73,7 +73,7 @@ void setup() {
 
   tft.begin();
   SD.begin(SD_CS);
-  bmpDraw("start_logo.bmp", 0, 0);
+  bmpDraw("start.bmp", 0, 0);
   delay(100);
   backlight(bl);
   delay(100);
@@ -172,7 +172,7 @@ void closePopup() {
 void draw(int p) {
   if (p != openApp) {
     switch (p) {
-      case 0: bmpDraw("lockscreen.bmp", 0, 0); break;
+      case 0: bmpDraw("LS.bmp", 0, 0); break;
       case 1: drawMenu(); break;
     }
     openApp = p;
