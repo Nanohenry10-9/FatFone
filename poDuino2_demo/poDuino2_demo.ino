@@ -55,6 +55,7 @@ void setup() {
   tft.fillScreen(white);
   SD.begin(SD_CS);
   tft.setTextSize(7);
+  tft.setCursor(0, 0);
   tft.print("Nano demo!");
   delay(3000);
   tft.fillScreen(white);
