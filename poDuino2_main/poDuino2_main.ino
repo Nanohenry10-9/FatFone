@@ -4,22 +4,22 @@
 #include <Adafruit_FT6206.h>
 #include <SoftwareSerial.h>
 
-Adafruit_FT6206 ctp = Adafruit_FT6206(); // Library initializations
+Adafruit_FT6206 TS = Adafruit_FT6206(); // Library initializations
 
 #define TFT_CS 10
 #define TFT_DC 9
+#define SD_CS 4
+#define TFT_BL 5
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 #define FONA_RX 2
 #define FONA_TX 3
 #define FONA_RST 7
+#define FONA_RI 6
+#define FONA_KEY 8
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
-#define FONA_RI 6
-#define FONA_KEY 8
-#define SD_CS 4
-#define TFT_BL 5
 
 #define lightgrey ILI9341_LIGHTGREY
 #define black ILI9341_BLACK
@@ -29,45 +29,36 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
 #define iconSize 40
 
+int bl = 8;
+
 void setup() {
   pinMode(FONA_RI, INPUT);
   pinMode(FONA_KEY, OUTPUT);
   pinMode(TFT_BL, OUTPUT);
-  backlight(10);
-
+  backlight(bl);
   tft.begin();
-
-  tft.setCursor(2, 2);
   tft.setTextColor(ILI9341_BLACK);
-  tft.fillScreen(ILI9341_BLUE);
   tft.setTextSize(2);
-  tft.setTextColor(ILI9341_BLACK);
   tft.setCursor(5, 5);
-  yield();
   if (!SD.begin(SD_CS)) {
-    tft.println("No SD card!");
+    tft.println(F("No SD card!"));
     tft.setCursor(5, 35);
-    tft.println("Please insert a SD");
+    tft.println(F("Please insert a SD"));
     tft.setCursor(5, 65);
-    tft.print("card and restart.");
+    tft.print(F("card and reboot."));
     while(true){}
   }
-  tft.println("Drawing bitmap...");
+  SD.begin(SD_CS);
   bmpDraw("start.bmp", 0, 0);
-  ctp.begin(40);
-  while(!ctp.touched()){}
-  tft.setCursor(5, 35);
-  tft.print("Touched!");
-  delay(100);
+  TS.begin(40);
   fonaSerial->begin(4800);
-  delay(100);
+  delay(1000);
   bmpDraw("LS.bmp", 0, 0);
 }
 
 void loop() {
   
 }
-
 void backlight(int a) {
   int b = map(a, 0, 10, 0, 255);
   analogWrite(TFT_BL, b);
@@ -94,23 +85,37 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
 
   if((x >= tft.width()) || (y >= tft.height())) return;
 
+  Serial.println();
+  Serial.print(F("Loading image '"));
+  Serial.print(filename);
+  Serial.println('\'');
+
   // Open requested file on SD card
   if ((bmpFile = SD.open(filename)) == NULL) {
+    Serial.print(F("File not found"));
     return;
   }
 
   // Parse BMP header
   if(read16(bmpFile) == 0x4D42) { // BMP signature
+    Serial.print(F("File size: ")); Serial.println(read32(bmpFile));
     (void)read32(bmpFile); // Read & ignore creator bytes
     bmpImageoffset = read32(bmpFile); // Start of image data
+    Serial.print(F("Image Offset: ")); Serial.println(bmpImageoffset, DEC);
     // Read DIB header
+    Serial.print(F("Header size: ")); Serial.println(read32(bmpFile));
     bmpWidth  = read32(bmpFile);
     bmpHeight = read32(bmpFile);
     if(read16(bmpFile) == 1) { // # planes -- must be '1'
       bmpDepth = read16(bmpFile); // bits per pixel
+      Serial.print(F("Bit Depth: ")); Serial.println(bmpDepth);
       if((bmpDepth == 24) && (read32(bmpFile) == 0)) { // 0 = uncompressed
 
         goodBmp = true; // Supported BMP format -- proceed!
+        Serial.print(F("Image size: "));
+        Serial.print(bmpWidth);
+        Serial.print('x');
+        Serial.println(bmpHeight);
 
         // BMP rows are padded (if needed) to 4-byte boundary
         rowSize = (bmpWidth * 3 + 3) & ~3;
@@ -162,11 +167,15 @@ void bmpDraw(char *filename, uint8_t x, uint16_t y) {
             tft.pushColor(tft.color565(r,g,b));
           } // end pixel
         } // end scanline
+        Serial.print(F("Loaded in "));
+        Serial.print(millis() - startTime);
+        Serial.println(" ms");
       } // end goodBmp
     }
   }
 
   bmpFile.close();
+  if(!goodBmp) Serial.println(F("BMP format not recognized."));
 }
 
 // These read 16- and 32-bit types from the SD card file.
