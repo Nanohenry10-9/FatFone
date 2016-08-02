@@ -1,4 +1,4 @@
-#include <SD.h>
+#include <SD.h> // Libraries
 #include <Adafruit_FONA.h>
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FT6206.h>
@@ -21,7 +21,7 @@ SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
-#define lightgrey ILI9341_LIGHTGREY
+#define lightgrey ILI9341_LIGHTGREY // System definitions/variables
 #define black ILI9341_BLACK
 #define blue ILI9341_BLUE
 #define navy ILI9341_NAVY
@@ -29,7 +29,18 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
 #define iconSize 40
 
-int bl = 8;
+#define LSTextX 140
+#define LSTextY 65
+
+int password[] = {0, 0, 0, 0};
+
+int givenPassword[] = {NULL, NULL, NULL, NULL};
+
+int bl = 2;
+
+bool phoneLocked = true;
+
+// Applications/screens: 0 is lockscreen, 1 is menu, 2 is settings
 
 void setup() {
   pinMode(FONA_RI, INPUT);
@@ -37,7 +48,7 @@ void setup() {
   pinMode(TFT_BL, OUTPUT);
   backlight(bl);
   tft.begin();
-  tft.setTextColor(ILI9341_BLACK);
+  tft.setTextColor(black);
   tft.setTextSize(2);
   tft.setCursor(5, 5);
   if (!SD.begin(SD_CS)) {
@@ -52,19 +63,81 @@ void setup() {
   bmpDraw("start.bmp", 0, 0);
   TS.begin(40);
   fonaSerial->begin(4800);
-  delay(1000);
-  bmpDraw("LS.bmp", 0, 0);
 }
 
 void loop() {
-  
+  if (phoneLocked) {
+    tft.setTextSize(1);
+    tft.setTextColor(black, white);
+    bmpDraw("LS.bmp", 0, 0);
+    while (phoneLocked) {
+      if (TS.touched()) {
+        touchHandler(0);
+        tft.setCursor(LSTextX, LSTextY);
+        if (givenPassword[0] != NULL) {
+          tft.print(givenPassword[0]);
+        }
+        if (givenPassword[1] != NULL) {
+          tft.print(givenPassword[1]);
+        }
+        if (givenPassword[2] != NULL) {
+          tft.print(givenPassword[2]);
+        }
+        if (givenPassword[3] != NULL) {
+          tft.print(givenPassword[3]);
+        }
+      }
+      while (!TS.touched()) {}
+    }
+  }
 }
+
 void backlight(int a) {
   int b = map(a, 0, 10, 0, 255);
   analogWrite(TFT_BL, b);
 }
 
+void touchHandler(int a) {
+  TS_Point touchPoint = TS.getPoint();
+  touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
+  touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
+  switch (a) {
+    case 0:
+      if (touchPoint.x >= 35 && touchPoint.y >= 50 && touchPoint.x <= 210 && touchPoint.y <= 215) {
+        if (touchPoint.x >= 35 && touchPoint.y >= 50 && touchPoint.x <= 75 && touchPoint.y <= 95) {
+          insertToGivenPassword(1);
+        } else if (touchPoint.x >= 95 && touchPoint.y >= 50 && touchPoint.x <= 150 && touchPoint.y <= 95) {
+          
+        }
+      } else if (touchPoint.x >= 35 && touchPoint.y >= 225 && touchPoint.x <= 80 && touchPoint.y <= 270) {
+        insertToGivenPassword(0);
+      }
+      break;
+  }
+}
+
+void insertToGivenPassword(int a) {
+  if (givenPassword[0] == NULL) {
+    givenPassword[0] = a;
+  } else if (givenPassword[1] == NULL) {
+    givenPassword[1] = a;
+  } else if (givenPassword[2] == NULL) {
+    givenPassword[2] = a;
+  } else if (givenPassword[3] == NULL) {
+    givenPassword[3] = a;
+  }
+}
+
+bool checkIfPasswordCorrect() {
+  if (givenPassword[0] == password[0] && givenPassword[1] == password[1] && givenPassword[2] == password[2] && givenPassword[3] == password[3]) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 //----------------------------- BITMAP DRAWING -------------------------------
+//                         (Function from Adafruit)
 
 #define BUFFPIXEL 20
 
