@@ -113,20 +113,27 @@ void setup() {
   tft.setRotation(0);
   tft.setTextSize(7);
   tft.fillScreen(navy);
-  tft.setCursor(40, 50);
+  tft.setCursor(10, 20);
   tft.setTextColor(green);
-  tft.print(F("N"));
+  tft.print(F("F"));
   tft.setTextColor(lightgrey);
-  tft.print(F("A"));
+  tft.print(F("a"));
   tft.setTextColor(red);
-  tft.print(F("N"));
+  tft.print(F("t"));
+  tft.setCursor(65, 80);
   tft.setTextColor(cyan);
-  tft.print(F("O"));
+  tft.print(F("F"));
+  tft.setTextColor(green);
+  tft.print(F("o"));
+  tft.setTextColor(lightgrey);
+  tft.print(F("n"));
+  tft.setTextColor(red);
+  tft.print(F("e"));
   tft.setTextColor(white);
   tft.setTextSize(3);
-  tft.setCursor(50, 150);
+  tft.setCursor(50, 170);
   tft.print(F("Starting"));
-  tft.setCursor(85, 180);
+  tft.setCursor(85, 200);
   for (int i = 0; i <= bl; i++) {
     backlight(i);
     delay(20);
@@ -256,6 +263,12 @@ void draw(int a, int b) {
       tft.print(time[0]);
       tft.print(F(":"));
       tft.print(time[1]);
+      tft.setTextColor(white, blue);
+      tft.setTextSize(3);
+      tft.setCursor(45, 90);
+      tft.print(F("BATT. "));
+      tft.print(getBattery());
+      tft.print(F("%"));
       break;
     case KEYPAD:
       tft.fillRect(0, 160, 240, 320, white);
@@ -475,6 +488,14 @@ lockBegin:
         tft.print(time[0]);
         tft.print(F(":"));
         tft.print(time[1]);
+        if (batteryUpdated()) {
+          tft.setTextColor(white, blue);
+          tft.setTextSize(3);
+          tft.setCursor(45, 90);
+          tft.print(F("BATT. "));
+          tft.print(getBattery());
+          tft.print(F("%"));
+        }
       }
       delay(1000);
     }
@@ -553,29 +574,16 @@ void touchHandler(int a) {
           } else if (touchPoint.x >= 0 && touchPoint.y >= 260 && touchPoint.x <= 170 && touchPoint.y <= 320) {
             draw(CONTACTS, 1);
           } else if (touchPoint.x >= 180 && touchPoint.y >= 120 && touchPoint.x <= 240 && touchPoint.y <= 190) {
-            if (page == 0) {
-              slidePage(true, cyan);
-              page = 1;
-              for (int i = 5; (i - 5) < numOfAppsP2; i++) {
-                tft.setCursor(appX[i], appY[i]);
-                tft.setTextColor(appColor[i], cyan);
-                tft.setTextSize(3);
-                tft.print(appName[i]);
-              }
-              tft.fillTriangle(40, 200, 40, 120, 10, 160, green);
-              tft.drawTriangle(40, 200, 40, 120, 10, 160, black);
-            } else {
-              slidePage(false, cyan);
-              page = 0;
-              for (int i = 5; i < numOfAppsP1; i++) {
-                tft.setCursor(appX[i], appY[i]);
-                tft.setTextColor(appColor[i], cyan);
-                tft.setTextSize(3);
-                tft.print(appName[i]);
-              }
-              tft.fillTriangle(200, 200, 200, 120, 230, 160, green);
-              tft.drawTriangle(200, 200, 200, 120, 230, 160, black);
+            slidePage(false, cyan);
+            page = 1;
+            for (int i = 5; (i - 5) < numOfAppsP2; i++) {
+              tft.setCursor(appX[i], appY[i]);
+              tft.setTextColor(appColor[i], cyan);
+              tft.setTextSize(3);
+              tft.print(appName[i]);
             }
+            tft.fillTriangle(40, 200, 40, 120, 10, 160, green);
+            tft.drawTriangle(40, 200, 40, 120, 10, 160, black);
           }
         } else {
           if (touchPoint.x >= 5 && touchPoint.y >= 5 && touchPoint.x <= 70 && touchPoint.y <= 50) {
@@ -583,7 +591,16 @@ void touchHandler(int a) {
           } else if (touchPoint.x >= 30 && touchPoint.y >= 55 && touchPoint.x <= 240 && touchPoint.y <= 100) {
             draw(PONG, 1);
           } else if (touchPoint.x >= 0 && touchPoint.y >= 120 && touchPoint.x <= 60 && touchPoint.y <= 190) {
-            slidePage();
+            slidePage(true, cyan);
+            page = 0;
+            for (int i = 0; i < numOfAppsP1; i++) {
+              tft.setCursor(appX[i], appY[i]);
+              tft.setTextColor(appColor[i], cyan);
+              tft.setTextSize(3);
+              tft.print(appName[i]);
+            }
+            tft.fillTriangle(200, 200, 200, 120, 230, 160, green);
+            tft.drawTriangle(200, 200, 200, 120, 230, 160, black);
           }
         }
         break;
@@ -635,9 +652,7 @@ void touchHandler(int a) {
             radioState = false;
           }
         } else if (touchPoint.y >= 255) {
-          for (int i = 240; i >= 0; i--) {
-            tft.drawFastVLine();
-          }
+          slidePage(false, white);
         }
         break;
       case PHONE:
@@ -700,10 +715,6 @@ void insertToGivenPassword(int a) {
 bool checkIfPasswordCorrect() {
   if (givenPassword[0] == password[0] && givenPassword[1] == password[1] && givenPassword[2] == password[2] && givenPassword[3] == password[3]) {
     return true;
-  } else if (givenPassword[0] == 3 && givenPassword[1] == 3 && givenPassword[2] == 3 && givenPassword[3] == 3) {
-    delay(10000);
-    tft.fillTriangle(120, 90, 20, 240, 220, 240, darkgreen);
-    return true;
   } else {
     return false;
   }
@@ -714,13 +725,13 @@ void slidePage(bool left, uint16_t color) {
     for (int i = 240; i >= 0; i--) {
       tft.drawFastVLine(i, 50, 270, color);
       tft.drawFastVLine((i - 1), 50, 270, black);
-      delay(1);
+      delayMicroseconds(500);
     }
   } else {
     for (int i = 0; i <= 240; i++) {
       tft.drawFastVLine(i, 50, 270, color);
       tft.drawFastVLine((i + 1), 50, 270, black);
-      delay(1);
+      delayMicroseconds(500);
     }
   }
 }
