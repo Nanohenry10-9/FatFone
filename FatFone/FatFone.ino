@@ -49,7 +49,7 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define LSTextY 20
 
 #define clockX 75
-#define clockY 17
+#define clockY 12
 
 #define batteryX 190
 #define batteryY 16
@@ -72,7 +72,7 @@ bool phoneLocked = false;
 int screen = 0;
 int lastScreen = 1;
 
-int time[] = {2, 30};
+int time[] = {12, 00};
 long timeTimer = millis();
 bool timeUpdated = true;
 uint16_t timeBGcolors[] = {blue, blue, darkgrey, black, red, darkgreen, navy,    black, blue};
@@ -111,27 +111,19 @@ void setup() {
   digitalWrite(FONA_KEY, HIGH);
   tft.begin();
   tft.setRotation(0);
-  tft.setTextSize(7);
+  tft.setTextSize(12);
   tft.fillScreen(navy);
-  tft.setCursor(10, 20);
-  tft.setTextColor(green);
+  tft.fillRoundRect(10, 10, 220, 135, 10, cyan);
+  tft.setCursor(50, 30);
+  tft.setTextColor(black);
   tft.print(F("F"));
-  tft.setTextColor(lightgrey);
-  tft.print(F("a"));
-  tft.setTextColor(red);
-  tft.print(F("t"));
-  tft.setCursor(65, 80);
-  tft.setTextColor(cyan);
-  tft.print(F("F"));
-  tft.setTextColor(green);
-  tft.print(F("o"));
-  tft.setTextColor(lightgrey);
-  tft.print(F("n"));
-  tft.setTextColor(red);
-  tft.print(F("e"));
-  tft.setTextColor(white);
+  tft.setTextSize(5);
+  tft.print(F("at"));
+  tft.setCursor(108, 78);
+  tft.print(F("ONE"));
   tft.setTextSize(3);
   tft.setCursor(50, 170);
+  tft.setTextColor(white);
   tft.print(F("Starting"));
   tft.setCursor(85, 200);
   for (int i = 0; i <= bl; i++) {
@@ -254,21 +246,30 @@ void draw(int a, int b) {
   }
   switch (a) {
     case LOCKTIME:
-      tft.setTextColor(white, blue);
+      tft.setTextColor(black, cyan);
       tft.setTextSize(6);
+      tft.fillRoundRect(18, 10, 200, 65, 8, cyan);
       tft.setCursor(50, 20);
       if (time[0] > 10) {
         tft.setCursor(30, 20);
       }
       tft.print(time[0]);
       tft.print(F(":"));
+      if (time[1] < 10) {
+        tft.print(F("0"));
+      }
       tft.print(time[1]);
       tft.setTextColor(white, blue);
       tft.setTextSize(3);
-      tft.setCursor(45, 90);
-      tft.print(F("BATT. "));
-      tft.print(getBattery());
-      tft.print(F("%"));
+      tft.setCursor(40, 90);
+      tft.print(F("BATT:"));
+      if (getBattery() >= 95) {
+        tft.print(F("Full"));
+      } else {
+        tft.print(F(" "));
+        tft.print(getBattery());
+        tft.print(F("%"));
+      }
       break;
     case KEYPAD:
       tft.fillRect(0, 160, 240, 320, white);
@@ -422,7 +423,7 @@ void drawTime(int a, uint16_t bgColor) {
     tft.setTextSize(3);
     tft.setTextColor(white, bgColor);
     if (time[0] < 10) {
-      tft.setCursor((clockX + 7), clockY);
+      tft.setCursor((clockX + 11), clockY);
     }
     tft.print(time[0]);
     tft.print(F(":"));
@@ -479,7 +480,7 @@ lockBegin:
     while (ts.touched()) {
       updateTime();
       if (timeUpdated) {
-        tft.setTextColor(white, blue);
+        tft.setTextColor(black, cyan);
         tft.setTextSize(6);
         tft.setCursor(50, 20);
         if (time[0] > 10) {
@@ -487,14 +488,22 @@ lockBegin:
         }
         tft.print(time[0]);
         tft.print(F(":"));
+        if (time[1] < 10) {
+          tft.print(F("0"));
+        }
         tft.print(time[1]);
+        tft.setTextColor(white, blue);
+        tft.setTextSize(3);
+        tft.setCursor(40, 90);
+        tft.print(F("BATT:"));
         if (batteryUpdated()) {
-          tft.setTextColor(white, blue);
-          tft.setTextSize(3);
-          tft.setCursor(45, 90);
-          tft.print(F("BATT. "));
-          tft.print(getBattery());
-          tft.print(F("%"));
+          if (getBattery() >= 95) {
+            tft.print(F("Full"));
+          } else {
+            tft.print(F(" "));
+            tft.print(getBattery());
+            tft.print(F("%"));
+          }
         }
       }
       delay(1000);
