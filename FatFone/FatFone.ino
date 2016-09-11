@@ -1,9 +1,9 @@
-#include <Adafruit_ILI9341.h> // Libraries
+#include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
 #include <Adafruit_FT6206.h>
 #include <SoftwareSerial.h>
 
-Adafruit_FT6206 ts = Adafruit_FT6206(); // Library initializations
+Adafruit_FT6206 ts = Adafruit_FT6206();
 
 #define TFT_CS 10
 #define TFT_DC 9
@@ -21,7 +21,7 @@ SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
-#define lightgrey ILI9341_LIGHTGREY // System definitions/variables
+#define lightgrey ILI9341_LIGHTGREY
 #define green ILI9341_GREEN
 #define black ILI9341_BLACK
 #define blue ILI9341_BLUE
@@ -53,34 +53,36 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define batteryX 190
 #define batteryY 4
 
-bool DEMO = false; // Does the Fona actually make calls and stuff or is it just a demo?
+#define NOT_CALLING 0
+#define CALLING_TO 1
+#define CALL_FROM 2
 
-int password[] = {0, 0, 0, 0}; // Default password
+const bool DEMO = false;
+
+int password[] = {0, 0, 0, 0};
 int givenPassword[] = {' ', ' ', ' ', ' '};
 
 int bl = 12;
 int volume = 60;
 bool screenDimmed = false;
 int dimmedBL;
-int audio = FONA_EXTAUDIO; // Other audio setting is FONA_HEADSETAUDIO
+int audio = FONA_EXTAUDIO;
 
 bool phoneLocked = false;
 
 int screen = 0;
 int lastScreen = 1;
 
-int time[] = {12, 00};
-long timeTimer = millis();
-bool timeUpdated = true;
+char RTCtime[23];
+long int updateTimer = millis();
 
-int numOfAppsP1 = 5;
-int appX[] = {20, 20, 20, 20, 20};
-int appY[] = {70, 120, 170, 220, 270};
-char* appName[] = {"Settings", "Phone", "Messages", "Contacts", "Pong"};
-uint16_t appColor[] = {darkgrey, red, darkgreen, navy, black};
+const int appX[] = {20, 20, 20, 20, 20};
+const int appY[] = {70, 120, 170, 220, 270};
+const char* appName[5] = {"Settings", "Phone", "Messages", "Contacts", "Pong"};
+const unsigned int appColor[] = {darkgrey, red, darkgreen, navy, black};
 
 long idleTimer;
-int idleTimeout = 60000;
+const int idleTimeout = 60000;
 
 long uptime = millis();
 
@@ -90,23 +92,24 @@ uint16_t bat;
 int batry;
 int oldBatry;
 long batTimer = millis();
+bool charging = false;
 
 char givenPNumber[10] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
 
-int8_t netStat;
-int8_t oldNetStat;
+int netStat;
+int oldNetStat;
 
-int8_t callStat;
+int callStat = NOT_CALLING;
+char incomingCallNumber[34] = {' '};
 
 void setup() {
-  //Serial.begin(9600); // For debugging/testing coordinates
   pinMode(TFT_BL, OUTPUT);
   pinMode(FONA_KEY, OUTPUT);
   digitalWrite(FONA_KEY, HIGH);
   tft.begin();
   tft.setRotation(0);
   tft.fillScreen(navy);
-  tft.fillRoundRect(10, 10, 220, 135, 10, cyan); //Logo
+  tft.fillRoundRect(10, 10, 220, 135, 10, cyan);
   tft.setTextSize(12);
   tft.setCursor(50, 30);
   tft.setTextColor(black);
@@ -124,7 +127,6 @@ void setup() {
     backlight(i);
     delay(20);
   }
-  ts.begin(40);
   fonaSerial->begin(4800);
   tft.print(F("."));
   fona.begin(*fonaSerial);
@@ -132,12 +134,13 @@ void setup() {
   fona.setAudio(audio);
   tft.print(F("."));
   fona.setVolume(volume);
-  tft.print(F("."));
-  fona.unlockSIM("1234"); // SIM pin code (just an example)
-  fona.playToolkitTone(6, 500);
   pinMode(FONA_RI, INPUT);
   pinMode(LOCK_PIN, INPUT_PULLUP);
   tft.setTextWrap(false);
+  ts.begin(40);
+  tft.print(F("."));
+  fona.playToolkitTone(6, 500);
+  delay(1000);
   draw(LOCKSCREEN, 2);
   idleTimer = millis();
   oldBatry = getBattery();
@@ -145,58 +148,7 @@ void setup() {
 
 void loop() {
   if (phoneLocked) {
-    while (phoneLocked) {
-      if (ts.touched()) {
-        touchHandler(0);
-        tft.setTextSize(5);
-        tft.setTextColor(black, white);
-        tft.setCursor(LSTextX, LSTextY);
-        if (givenPassword[0] != ' ') {
-          tft.print(givenPassword[0]);
-        }
-        if (givenPassword[1] != ' ') {
-          tft.print(givenPassword[1]);
-        }
-        if (givenPassword[2] != ' ') {
-          tft.print(givenPassword[2]);
-        }
-        if (givenPassword[3] != ' ') {
-          tft.print(givenPassword[3]);
-          phoneLocked = !checkIfPasswordCorrect();
-          if (phoneLocked) {
-            fona.setPWM(2000);
-            givenPassword[0] = ' ';
-            givenPassword[1] = ' ';
-            givenPassword[2] = ' ';
-            givenPassword[3] = ' ';
-            tft.fillRect(7, 7, 226, 66, white);
-            delay(100);
-            fona.setPWM(0);
-          }
-        }
-        while (ts.touched()) {}
-      }
-      if (timeUpdated) {
-        drawTime(0, blue);
-      }
-      if (digitalRead(LOCK_PIN) == 0) {
-        lock();
-      }
-      updateTime();
-      if (millis() - idleTimer >= (idleTimeout - 7000)) {
-        screenDimmed = true;
-        dimmedBL = (bl / 3);
-        backlight(dimmedBL);
-        if (millis() - idleTimer >= idleTimeout) {
-          lock();
-          idleTimer = millis();
-          screenDimmed = false;
-        }
-      }
-      if (digitalRead(LOCK_PIN) == 0) {
-        lock();
-      }
-    }
+    lockscreenOpen();
     givenPassword[0] = ' ';
     givenPassword[1] = ' ';
     givenPassword[2] = ' ';
@@ -208,13 +160,10 @@ void loop() {
       hasStarted = true;
     }
   }
-  if (timeUpdated) {
-    drawTime(1, blue);
-  }
+  drawTime(1, blue);
   if (ts.touched()) {
     touchHandler(MENU);
   }
-  updateTime();
   if (millis() - idleTimer >= (idleTimeout - 7000)) {
     screenDimmed = true;
     dimmedBL = (bl / 2);
@@ -241,28 +190,25 @@ void loop() {
 }
 
 void draw(int a, int b) {
-  if (a != -1 && b != 0) {
+  if (a != KEYPAD && b != 0) {
     for (int i = bl; i >= 0; i--) {
       backlight(i);
       delay(10);
     }
     screen = a;
   }
+  if (a != KEYPAD) {
+    updateTimer = 60000;
+  }
   switch (a) {
     case LOCKTIME:
       tft.setTextColor(black, cyan);
       tft.setTextSize(6);
       tft.fillRoundRect(18, 10, 200, 65, 8, cyan);
-      tft.setCursor(50, 20);
-      if (time[0] > 10) {
-        tft.setCursor(30, 20);
+      tft.setCursor(35, 20);
+      for (int i = 10; i < 15; i++) {
+        tft.print(RTCtime[i]);
       }
-      tft.print(time[0]);
-      tft.print(F(":"));
-      if (time[1] < 10) {
-        tft.print(F("0"));
-      }
-      tft.print(time[1]);
       tft.setTextColor(white, blue);
       tft.setTextSize(3);
       tft.setCursor(40, 90);
@@ -313,12 +259,13 @@ void draw(int a, int b) {
       if (givenPassword[3] != ' ') {
         tft.print(givenPassword[3]);
       }
+      drawTime(0, blue);
       phoneLocked = true;
       break;
     case MENU:
       tft.fillScreen(cyan);
       tft.fillRect(0, 0, 240, 50, blue);
-      for (int i = 0; i < numOfAppsP1; i++) {
+      for (int i = 0; i < 5; i++) {
         tft.setCursor(appX[i], appY[i]);
         tft.setTextColor(appColor[i], cyan);
         tft.setTextSize(3);
@@ -363,8 +310,19 @@ void draw(int a, int b) {
       tft.setCursor(20, 140);
       tft.print(F("End call"));
       tft.drawFastHLine(0, 180, 240, darkgrey);
-      tft.setCursor(20, 200);
-      tft.print(F("Call to number"));
+      if (callStat == NOT_CALLING) {
+        tft.setCursor(20, 200);
+        tft.print(F("Call to number"));
+        tft.drawFastHLine(0, 240, 240, darkgrey);
+      }
+      if (callStat == CALLING_TO) {
+        tft.setTextSize(2);
+        tft.setCursor(20, 260);
+        tft.setTextColor(black, white);
+        tft.print(F("Calling to:"));
+        tft.setCursor(20, 282);
+        tft.print(givenPNumber);
+      }
       break;
     case MESSAGES:
       tft.fillScreen(white);
@@ -396,49 +354,24 @@ void draw(int a, int b) {
 }
 
 void drawTime(int a, uint16_t bgColor) {
-  if (a == 0) {
-    tft.setCursor(37, 100);
-    tft.setTextSize(5);
-    tft.setTextColor(cyan, bgColor);
-    if (time[0] < 10) {
-      tft.setCursor(44, 100);
+  if (millis() - updateTimer >= 60000) {
+    fona.getTime(RTCtime, 23);
+    if (a == 0) {
+      tft.setCursor(47, 100);
+      tft.setTextSize(5);
+      tft.setTextColor(cyan, bgColor);
+      for (int i = 10; i < 15; i++) {
+        tft.print(RTCtime[i]);
+      }
+    } else {
+      tft.setCursor(clockX, clockY);
+      tft.setTextSize(3);
+      tft.setTextColor(white, bgColor);
+      for (int i = 10; i < 15; i++) {
+        tft.print(RTCtime[i]);
+      }
     }
-    tft.print(time[0]);
-    tft.print(F(":"));
-    if (time[1] < 10) {
-      tft.print(F("0"));
-    }
-    tft.print(time[1]);
-  } else {
-    tft.setCursor(clockX, clockY);
-    tft.setTextSize(3);
-    tft.setTextColor(white, bgColor);
-    if (time[0] < 10) {
-      tft.setCursor((clockX + 11), clockY);
-    }
-    tft.print(time[0]);
-    tft.print(F(":"));
-    if (time[1] < 10) {
-      tft.print(F("0"));
-    }
-    tft.print(time[1]);
-  }
-}
-
-void updateTime() {
-  if (millis() - timeTimer >= 60000) {
-    time[1] += 1;
-    if (time[1] >= 60) {
-      time[1] = 0;
-      time[0] += 1;
-    }
-    if (time[0] >= 24) {
-      time[0] = 0;
-    }
-    timeUpdated = true;
-    timeTimer = millis();
-  } else {
-    timeUpdated = false;
+    updateTimer = millis();
   }
 }
 
@@ -458,10 +391,6 @@ void lock() {
   phoneLocked = true;
 lockBegin:
   tft.fillScreen(blue);
-
-  while (digitalRead(LOCK_PIN) == 1) {
-    updateTime();
-  }
   delay(200);
   if (digitalRead(LOCK_PIN) == 0) {
     draw(LOCKTIME, 0);
@@ -470,20 +399,14 @@ lockBegin:
       delay(30);
     }
     while (digitalRead(LOCK_PIN) == 0) {
-      updateTime();
-      if (timeUpdated) {
+      if (millis() - updateTimer >= 60000) {
+        updateTimer = millis();
         tft.setTextColor(black, cyan);
         tft.setTextSize(6);
-        tft.setCursor(50, 20);
-        if (time[0] > 10) {
-          tft.setCursor(30, 20);
+        tft.setCursor(35, 20);
+        for (int i = 10; i < 15; i++) {
+          tft.print(RTCtime[i]);
         }
-        tft.print(time[0]);
-        tft.print(F(":"));
-        if (time[1] < 10) {
-          tft.print(F("0"));
-        }
-        tft.print(time[1]);
         tft.setTextColor(white, blue);
         tft.setTextSize(3);
         tft.setCursor(40, 90);
@@ -512,55 +435,7 @@ lockBegin:
     backlight(i);
     delay(30);
   }
-  while (phoneLocked) {
-    if (ts.touched()) {
-      touchHandler(0);
-      tft.setTextSize(5);
-      tft.setTextColor(black, white);
-      tft.setCursor(LSTextX, LSTextY);
-      if (givenPassword[0] != ' ') {
-        tft.print(givenPassword[0]);
-      }
-      if (givenPassword[1] != ' ') {
-        tft.print(givenPassword[1]);
-      }
-      if (givenPassword[2] != ' ') {
-        tft.print(givenPassword[2]);
-      }
-      if (givenPassword[3] != ' ') {
-        tft.print(givenPassword[3]);
-        phoneLocked = !checkIfPasswordCorrect();
-        if (phoneLocked) {
-          fona.setPWM(2000);
-          givenPassword[0] = ' ';
-          givenPassword[1] = ' ';
-          givenPassword[2] = ' ';
-          givenPassword[3] = ' ';
-          tft.fillRect(7, 7, 226, 66, white);
-          delay(100);
-          fona.setPWM(0);
-        }
-      }
-      while (ts.touched()) {}
-    }
-    if (timeUpdated) {
-      drawTime(0, blue);
-    }
-    if (digitalRead(LOCK_PIN) == 0) {
-      lock();
-    }
-    updateTime();
-    if (millis() - idleTimer >= (idleTimeout - 7000)) {
-      screenDimmed = true;
-      dimmedBL = (bl / 3);
-      backlight(dimmedBL);
-      if (millis() - idleTimer >= idleTimeout) {
-        lock();
-        idleTimer = millis();
-        screenDimmed = false;
-      }
-    }
-  }
+  lockscreenOpen();
   givenPassword[0] = ' ';
   givenPassword[1] = ' ';
   givenPassword[2] = ' ';
@@ -735,11 +610,7 @@ void settings() {
         }
       }
     }
-    updateTime();
-    if (timeUpdated) {
-      drawTime(1, darkgrey);
-      timeUpdated = false;
-    }
+    drawTime(1, darkgrey);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -759,19 +630,29 @@ void phone() {
   bool exit = false;
   bool subExit = false;
   bool willCall;
-  givenPNumber[0] = ' ';
-  givenPNumber[1] = ' ';
-  givenPNumber[2] = ' ';
-  givenPNumber[3] = ' ';
-  givenPNumber[4] = ' ';
-  givenPNumber[5] = ' ';
-  givenPNumber[6] = ' ';
-  givenPNumber[7] = ' ';
-  givenPNumber[8] = ' ';
   TS_Point touchPoint = ts.getPoint();
   touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
   touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
   while (exit == false) {
+    if (digitalRead(FONA_RI) == 0) {
+      fona.incomingCallNumber(incomingCallNumber);
+      callStat = CALL_FROM;
+      tft.fillRect(0, 200, 240, 43, white);
+      tft.setTextSize(2);
+      tft.setCursor(20, 260);
+      tft.setTextColor(black, white);
+      tft.fillRect(0, 245, 240, 40, white);
+      tft.print(F("Call from"));
+      tft.setCursor(20, 282);
+      tft.print(incomingCallNumber);
+    } else if (callStat != CALLING_TO) {
+      tft.fillRect(0, 245, 240, 40, white);
+      tft.setTextSize(2);
+      tft.setTextColor(black, white);
+      tft.setCursor(20, 200);
+      tft.print(F("Call to number"));
+      tft.drawFastHLine(0, 240, 240, darkgrey);
+    }
     if (ts.touched()) {
       idleTimer = millis();
       if (screenDimmed) {
@@ -787,7 +668,17 @@ void phone() {
           fona.pickUp();
         } else if (touchPoint.y <= 180) {
           fona.hangUp();
-        } else {
+          if (callStat == CALLING_TO) {
+            fona.playToolkitTone(5, 1000);
+          }
+          callStat = NOT_CALLING;
+          tft.fillRect(0, 245, 240, 50, white);
+          tft.setTextSize(2);
+          tft.setTextColor(black, white);
+          tft.setCursor(20, 200);
+          tft.print(F("Call to number"));
+          tft.drawFastHLine(0, 240, 240, darkgrey);
+        } else if (touchPoint.y <= 240 && callStat == NOT_CALLING) {
           subExit = false;
           slidePage(false, lightgrey);
           draw(KEYPAD, 0);
@@ -798,6 +689,15 @@ void phone() {
           tft.setTextColor(black, green);
           tft.setCursor(90, 125);
           tft.print(F("Call"));
+          givenPNumber[0] = ' ';
+          givenPNumber[1] = ' ';
+          givenPNumber[2] = ' ';
+          givenPNumber[3] = ' ';
+          givenPNumber[4] = ' ';
+          givenPNumber[5] = ' ';
+          givenPNumber[6] = ' ';
+          givenPNumber[7] = ' ';
+          givenPNumber[8] = ' ';
           while (subExit == false) {
             if (ts.touched()) {
               idleTimer = millis();
@@ -852,19 +752,17 @@ void phone() {
               while (ts.touched()) {}
             }
           }
+          slidePage(true, white);
           if (DEMO == false && willCall == true) {
             fona.callPhone(givenPNumber);
+            callStat = CALLING_TO;
+            tft.setTextSize(2);
+            tft.setCursor(20, 260);
+            tft.setTextColor(black, white);
+            tft.print(F("Calling to:"));
+            tft.setCursor(20, 282);
+            tft.print(givenPNumber);
           }
-          slidePage(true, white);
-          givenPNumber[0] = ' ';
-          givenPNumber[1] = ' ';
-          givenPNumber[2] = ' ';
-          givenPNumber[3] = ' ';
-          givenPNumber[4] = ' ';
-          givenPNumber[5] = ' ';
-          givenPNumber[6] = ' ';
-          givenPNumber[7] = ' ';
-          givenPNumber[8] = ' ';
           tft.setTextSize(2);
           tft.setTextColor(black, white);
           tft.setCursor(20, 80);
@@ -873,16 +771,15 @@ void phone() {
           tft.setCursor(20, 140);
           tft.print(F("End call"));
           tft.drawFastHLine(0, 180, 240, darkgrey);
-          tft.setCursor(20, 200);
-          tft.print(F("Call to number"));
+          if (callStat == NOT_CALLING) {
+            tft.setCursor(20, 200);
+            tft.print(F("Call to number"));
+            tft.drawFastHLine(0, 240, 240, darkgrey);
+          }
         }
       }
     }
-    updateTime();
-    if (timeUpdated) {
-      drawTime(1, red);
-      timeUpdated = false;
-    }
+    drawTime(1, red);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -963,11 +860,7 @@ void messages() {
         }
       }
     }
-    updateTime();
-    if (timeUpdated) {
-      drawTime(1, green);
-      timeUpdated = false;
-    }
+    drawTime(1, green);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -1003,11 +896,7 @@ void contacts() {
         }
       }
     }
-    updateTime();
-    if (timeUpdated) {
-      drawTime(1, blue);
-      timeUpdated = false;
-    }
+    drawTime(1, blue);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -1061,16 +950,6 @@ void exitApp() {
   draw(MENU, 1);
 }
 
-/*void serialPrintCoordinates() {
-  TS_Point touchPoint = ts.getPoint();
-  touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
-  touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
-  Serial.print(F("X: "));
-  Serial.print(touchPoint.x);
-  Serial.print(F(", Y: "));
-  Serial.println(touchPoint.y);
-  }*/
-
 bool checkNetStat() {
   netStat = fona.getNetworkStatus();
   if (netStat != oldNetStat) {
@@ -1087,6 +966,8 @@ void printNetStat() {
   tft.setCursor(5, 7);
   switch (netStat) {
     case 0:
+      tft.print(F("Not regist."));
+      break;
     case 3:
     case 4:
       tft.print(F("No network"));
@@ -1101,6 +982,59 @@ void printNetStat() {
     default:
       tft.print(F("No network"));
       break;
+  }
+}
+
+void lockscreenOpen() {
+  updateTimer = 60000;
+  while (phoneLocked) {
+    if (ts.touched()) {
+      touchHandler(0);
+      tft.setTextSize(5);
+      tft.setTextColor(black, white);
+      tft.setCursor(LSTextX, LSTextY);
+      if (givenPassword[0] != ' ') {
+        tft.print(givenPassword[0]);
+      }
+      if (givenPassword[1] != ' ') {
+        tft.print(givenPassword[1]);
+      }
+      if (givenPassword[2] != ' ') {
+        tft.print(givenPassword[2]);
+      }
+      if (givenPassword[3] != ' ') {
+        tft.print(givenPassword[3]);
+        phoneLocked = !checkIfPasswordCorrect();
+        if (phoneLocked) {
+          fona.setPWM(2000);
+          givenPassword[0] = ' ';
+          givenPassword[1] = ' ';
+          givenPassword[2] = ' ';
+          givenPassword[3] = ' ';
+          tft.fillRect(7, 7, 226, 66, white);
+          delay(100);
+          fona.setPWM(0);
+        }
+      }
+      while (ts.touched()) {}
+    }
+    drawTime(0, blue);
+    if (digitalRead(LOCK_PIN) == 0) {
+      lock();
+    }
+    if (millis() - idleTimer >= (idleTimeout - 7000)) {
+      screenDimmed = true;
+      dimmedBL = (bl / 3);
+      backlight(dimmedBL);
+      if (millis() - idleTimer >= idleTimeout) {
+        lock();
+        idleTimer = millis();
+        screenDimmed = false;
+      }
+    }
+    if (digitalRead(LOCK_PIN) == 0) {
+      lock();
+    }
   }
 }
 
