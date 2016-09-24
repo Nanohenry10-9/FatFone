@@ -15,7 +15,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 #define FONA_RX 2
 #define FONA_TX 3
 #define FONA_RST -1
-#define FONA_RI 6
+#define FONA_RI 0
 #define FONA_KEY 8
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
@@ -57,16 +57,14 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define CALLING_TO 1
 #define CALL_FROM 2
 
-const bool DEMO = false;
+byte password[] = {0, 0, 0, 0};
+byte givenPassword[] = {' ', ' ', ' ', ' '};
 
-int password[] = {0, 0, 0, 0};
-int givenPassword[] = {' ', ' ', ' ', ' '};
-
-int bl = 12;
-int volume = 60;
+byte bl = 12;
+byte volume = 60;
 bool screenDimmed = false;
-int dimmedBL;
-int audio = FONA_EXTAUDIO;
+byte dimmedBL;
+byte audio = FONA_EXTAUDIO;
 
 bool phoneLocked = false;
 
@@ -94,12 +92,13 @@ int oldBatry;
 long batTimer = millis();
 bool charging = false;
 
-char givenPNumber[10] = {' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '};
+char givenPNumber[10] = {' '};
 
 int netStat;
 int oldNetStat;
 
-int callStat = NOT_CALLING;
+byte callStat = NOT_CALLING;
+byte oldCallStat = NOT_CALLING;
 char incomingCallNumber[34] = {' '};
 
 void setup() {
@@ -113,7 +112,7 @@ void setup() {
   tft.setTextSize(12);
   tft.setCursor(50, 30);
   tft.setTextColor(black);
-  tft.print(F("F"));
+  tft.print('F');
   tft.setTextSize(5);
   tft.print(F("at"));
   tft.setCursor(108, 78);
@@ -128,16 +127,21 @@ void setup() {
     delay(20);
   }
   fonaSerial->begin(4800);
-  tft.print(F("."));
-  fona.begin(*fonaSerial);
-  tft.print(F("."));
+  tft.print('.');
+  if (!fona.begin(*fonaSerial)) {
+    tft.setTextColor(red);
+    tft.print('x');
+    while(true){}
+  }
+  tft.print('.');
   fona.setAudio(audio);
-  tft.print(F("."));
+  tft.print('.');
   fona.setVolume(volume);
   pinMode(FONA_RI, INPUT);
   pinMode(LOCK_PIN, INPUT_PULLUP);
   tft.setTextWrap(false);
   ts.begin(40);
+  fona.callerIdNotification(true, FONA_RI);
   tft.print(F("."));
   fona.playToolkitTone(6, 500);
   delay(1000);
@@ -607,8 +611,19 @@ void settings() {
         touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
         if (touchPoint.y <= 50) {
           exit = true;
+        } else if (touchPoint.x >= 130 && touchPoint.y >= 70 && touchPoint.x <= 180 && touchPoint.y <= 120) {
+          if (bl >= 2) {
+            bl = (bl - 2);
+            backlight(bl); // 0-20
+          }
+        } else if (touchPoint.x >= 180 && touchPoint.y >= 70 && touchPoint.x <= 230 && touchPoint.y <= 120) {
+          if (bl <= 18) {
+            bl = (bl + 2);
+            backlight(bl);
+          }
         }
       }
+      while(ts.touched()){}
     }
     drawTime(1, darkgrey);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
@@ -634,24 +649,45 @@ void phone() {
   touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
   touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
   while (exit == false) {
-    if (digitalRead(FONA_RI) == 0) {
+    if (fona.incomingCallNumber(incomingCallNumber)) {
+      if (callStat != CALLING_TO) {
+        callStat = CALL_FROM;
+      } else {
+        fona.setPWM(2000);
+        delay(100);
+        fona.setPWM(0);
+        delay(100);
+        fona.setPWM(2000);
+        delay(100);
+        fona.setPWM(0);
+      }
+    }
+    if (callStat == CALL_FROM && oldCallStat == NOT_CALLING) { // If calling status changes from NOT_CALLING to CALL_FROM
       fona.incomingCallNumber(incomingCallNumber);
-      callStat = CALL_FROM;
-      tft.fillRect(0, 200, 240, 43, white);
+      tft.fillRect(0, 200, 240, 100, white);
       tft.setTextSize(2);
       tft.setCursor(20, 260);
       tft.setTextColor(black, white);
-      tft.fillRect(0, 245, 240, 40, white);
-      tft.print(F("Call from"));
+      tft.print(F("Call from:"));
       tft.setCursor(20, 282);
       tft.print(incomingCallNumber);
-    } else if (callStat != CALLING_TO) {
-      tft.fillRect(0, 245, 240, 40, white);
+      oldCallStat = callStat;
+    } else if (callStat == NOT_CALLING && oldCallStat == CALLING_TO || callStat == NOT_CALLING && oldCallStat == CALL_FROM) { // If calling status changes to NOT_CALLING
+      tft.fillRect(0, 245, 240, 70, white);
       tft.setTextSize(2);
       tft.setTextColor(black, white);
       tft.setCursor(20, 200);
       tft.print(F("Call to number"));
       tft.drawFastHLine(0, 240, 240, darkgrey);
+      oldCallStat = callStat;
+    } else if (callStat == CALLING_TO && oldCallStat == NOT_CALLING) { // If calling status changes from NOT_CALLING to CALLING_TO
+      tft.setTextSize(2);
+      tft.setCursor(20, 260);
+      tft.setTextColor(black, white);
+      tft.print(F("Calling to:"));
+      tft.setCursor(20, 282);
+      tft.print(givenPNumber);
+      oldCallStat = callStat;
     }
     if (ts.touched()) {
       idleTimer = millis();
@@ -668,16 +704,10 @@ void phone() {
           fona.pickUp();
         } else if (touchPoint.y <= 180) {
           fona.hangUp();
-          if (callStat == CALLING_TO) {
+          if (callStat == CALLING_TO || callStat == CALL_FROM) {
             fona.playToolkitTone(5, 1000);
           }
           callStat = NOT_CALLING;
-          tft.fillRect(0, 245, 240, 50, white);
-          tft.setTextSize(2);
-          tft.setTextColor(black, white);
-          tft.setCursor(20, 200);
-          tft.print(F("Call to number"));
-          tft.drawFastHLine(0, 240, 240, darkgrey);
         } else if (touchPoint.y <= 240 && callStat == NOT_CALLING) {
           subExit = false;
           slidePage(false, lightgrey);
@@ -753,15 +783,9 @@ void phone() {
             }
           }
           slidePage(true, white);
-          if (DEMO == false && willCall == true) {
+          if (willCall == true) {
             fona.callPhone(givenPNumber);
             callStat = CALLING_TO;
-            tft.setTextSize(2);
-            tft.setCursor(20, 260);
-            tft.setTextColor(black, white);
-            tft.print(F("Calling to:"));
-            tft.setCursor(20, 282);
-            tft.print(givenPNumber);
           }
           tft.setTextSize(2);
           tft.setTextColor(black, white);
@@ -771,11 +795,6 @@ void phone() {
           tft.setCursor(20, 140);
           tft.print(F("End call"));
           tft.drawFastHLine(0, 180, 240, darkgrey);
-          if (callStat == NOT_CALLING) {
-            tft.setCursor(20, 200);
-            tft.print(F("Call to number"));
-            tft.drawFastHLine(0, 240, 240, darkgrey);
-          }
         }
       }
     }
@@ -980,7 +999,7 @@ void printNetStat() {
       tft.print(F("Searching"));
       break;
     default:
-      tft.print(F("No network"));
+      tft.print(F("Unknown"));
       break;
   }
 }
