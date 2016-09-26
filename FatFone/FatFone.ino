@@ -61,7 +61,7 @@ byte password[] = {0, 0, 0, 0};
 byte givenPassword[] = {' ', ' ', ' ', ' '};
 
 byte bl = 12;
-byte volume = 10;
+byte volume = 50;
 bool screenDimmed = false;
 byte dimmedBL;
 byte audio = FONA_EXTAUDIO;
@@ -164,7 +164,7 @@ void loop() {
       hasStarted = true;
     }
   }
-  drawTime(1, blue);
+  drawTime(1, blue, false);
   if (ts.touched()) {
     touchHandler(MENU);
   }
@@ -247,7 +247,7 @@ void draw(int a, int b) {
       tft.fillRect(5, 5, 230, 70, white);
       tft.drawRect(5, 5, 230, 70, black);
       draw(KEYPAD, 0);
-      drawTime(0, blue);
+      drawTime(0, blue, true);
       tft.setTextSize(5);
       tft.setTextColor(black, white);
       tft.setCursor(LSTextX, LSTextY);
@@ -263,7 +263,6 @@ void draw(int a, int b) {
       if (givenPassword[3] != ' ') {
         tft.print(givenPassword[3]);
       }
-      drawTime(0, blue);
       phoneLocked = true;
       break;
     case MENU:
@@ -275,7 +274,6 @@ void draw(int a, int b) {
         tft.setTextSize(3);
         tft.print(appName[i]);
       }
-      drawTime(1, blue);
       lastScreen = MENU;
       tft.setTextColor(white, blue);
       tft.setTextSize(2);
@@ -283,11 +281,12 @@ void draw(int a, int b) {
       tft.print(getBattery());
       tft.print(F("%"));
       printNetStat();
+      drawTime(1, blue, true);
       break;
     case SETTINGS:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 50, darkgrey);
-      drawTime(1, darkgrey);
+      drawTime(1, darkgrey, true);
       tft.setCursor(7, 80);
       tft.setTextColor(black, white);
       tft.setTextSize(2);
@@ -305,7 +304,7 @@ void draw(int a, int b) {
     case PHONE:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 50, red);
-      drawTime(1, red);
+      drawTime(1, red, true);
       tft.setTextSize(2);
       tft.setTextColor(black, white);
       tft.setCursor(20, 80);
@@ -331,12 +330,12 @@ void draw(int a, int b) {
     case MESSAGES:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 50, darkgreen);
-      drawTime(1, darkgreen);
+      drawTime(1, darkgreen, true);
       break;
     case CONTACTS:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 50, navy);
-      drawTime(1, navy);
+      drawTime(1, navy, true);
       break;
     case PONG:
       tft.fillScreen(black);
@@ -344,6 +343,19 @@ void draw(int a, int b) {
         tft.drawPixel(i, 160, white);
       }
       tft.fillRect(80, 240, 80, 10, white);
+      tft.drawFastHLine(0, 5, 240, white);
+      tft.setTextColor(white, black);
+      tft.setTextSize(2);
+      tft.setCursor(0, 20);
+      tft.print(F("Use paddle to choose"));
+      tft.setCursor(0, 40);
+      tft.print(F("level and press OK."));
+      tft.setTextSize(4);
+      tft.setCursor(15, 200);
+      tft.print(F("1   2   3"));
+      tft.setTextSize(4);
+      tft.setCursor(90, 100);
+      tft.print(F("OK"));
       break;
   }
   if (a >= 2) {
@@ -357,8 +369,8 @@ void draw(int a, int b) {
   }
 }
 
-void drawTime(int a, uint16_t bgColor) {
-  if (millis() - updateTimer >= 60000) {
+void drawTime(int a, uint16_t bgColor, bool forceDraw) {
+  if (millis() - updateTimer >= 60000 || forceDraw == true) {
     fona.getTime(RTCtime, 23);
     if (a == 0) {
       tft.setCursor(47, 100);
@@ -623,7 +635,7 @@ void settings() {
       }
       while (ts.touched()) {}
     }
-    drawTime(1, darkgrey);
+    drawTime(1, darkgrey, false);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -802,7 +814,7 @@ void phone() {
         }
       }
     }
-    drawTime(1, red);
+    drawTime(1, red, false);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -883,7 +895,7 @@ void messages() {
         }
       }
     }
-    drawTime(1, green);
+    drawTime(1, green, false);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
       screenDimmed = true;
       dimmedBL = (bl / 2);
@@ -903,49 +915,54 @@ void pong() {
   bool exit = false;
   byte ballX = 120;
   byte ballY = 160;
-  byte ballXSpeed = 5;
-  byte ballYSpeed = -5;
+  byte ballXSpeed;
+  byte ballYSpeed;
   byte paddleX = 80;
   byte oldPaddleX = paddleX;
+  bool hasGameBegan = false;
   TS_Point touchPoint = ts.getPoint();
   touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
   touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
   while (exit == false) {
-    if (ballXSpeed > 0 || ballYSpeed > 0) {
-      tft.fillRect(ballX, ballY, 10, 10, white);
-    }
     if (oldPaddleX != paddleX) {
       tft.fillRect(oldPaddleX, 240, 80, 10, black);
       tft.fillRect(paddleX, 240, 80, 10, white);
       oldPaddleX = paddleX;
     }
-    delay(50);
-    if (ballXSpeed > 0 || ballYSpeed > 0) {
-      tft.fillRect(ballX, ballY, 10, 10, black);
-    }
-    ballX = (ballX + ballXSpeed);
-    ballY = (ballY + ballYSpeed);
-    if (ballX <= 1 || ballX >= 230) {
-      ballXSpeed = -ballXSpeed;
-    }
-    if (ballY <= 1) {
-      ballYSpeed = -ballYSpeed;
-    }
-    if (ballY >= 228) {
-      if (ballX >= paddleX && ballX <= (paddleX + 80)) {
-        ballYSpeed = -ballYSpeed;
-      } else {
-        tft.setCursor(30, 20);
-        tft.setTextSize(4);
-        tft.setTextColor(white, black);
-        tft.print(F("YOU LOSE"));
-        ballXSpeed = 0;
-        ballYSpeed = 0;
+    if (hasGameBegan == true) {
+      if (ballXSpeed > 0 || ballYSpeed > 0) {
+        tft.fillRect(ballX, ballY, 10, 10, white);
       }
-    }
-    if (ballY >= 145 && ballY <= 175) {
-      for (int i = 0; i <= 240; i += 2) {
-        tft.drawPixel(i, 160, white);
+      delay(50);
+      if (ballXSpeed > 0 || ballYSpeed > 0) {
+        tft.fillRect(ballX, ballY, 10, 10, black);
+      }
+      ballX = (ballX + ballXSpeed);
+      ballY = (ballY + ballYSpeed);
+      if (ballX <= 3 || ballX >= 230) {
+        ballXSpeed = -ballXSpeed;
+      }
+      if (ballY <= 10) {
+        ballYSpeed = -ballYSpeed;
+      }
+      if (ballY >= 223) {
+        if (ballX >= paddleX && ballX <= (paddleX + 80)) {
+          ballYSpeed = -ballYSpeed;
+          byte toAdd = map(ballX, paddleX, (paddleX + 80), -10, 10);
+          ballXSpeed = (ballXSpeed + toAdd);
+        } else {
+          tft.setCursor(25, 20);
+          tft.setTextSize(4);
+          tft.setTextColor(white, black);
+          tft.print(F("YOU LOSE"));
+          ballXSpeed = 0;
+          ballYSpeed = 0;
+        }
+      }
+      if (ballY >= 140 && ballY <= 180) {
+        for (int i = 0; i <= 240; i += 2) {
+          tft.drawPixel(i, 160, white);
+        }
       }
     }
     if (ts.touched()) {
@@ -957,7 +974,23 @@ void pong() {
         TS_Point touchPoint = ts.getPoint();
         touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
         touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
-        if (touchPoint.x <= 200 && touchPoint.x >= 40) {
+        if (hasGameBegan == false && touchPoint.x >= 80 && touchPoint.y >= 100 && touchPoint.x <= 160 && touchPoint.y <= 160) {
+          if (paddleX >= 0 && paddleX <= 53) {
+            ballXSpeed = 4;
+            ballYSpeed = -4;
+          } else if (paddleX >= 53 && paddleX <= 106) {
+            ballXSpeed = 7;
+            ballYSpeed = -7;
+          } else if (paddleX >= 106 && paddleX <= 160) {
+            ballXSpeed = 10;
+            ballYSpeed = -10;
+          }
+          tft.fillRect(0, 9, 240, 230, black);
+          for (int i = 0; i <= 240; i += 2) {
+            tft.drawPixel(i, 160, white);
+          }
+          hasGameBegan = true;
+        } else if (touchPoint.x <= 200 && touchPoint.x >= 40) {
           paddleX = (touchPoint.x - 40);
         }
         if (touchPoint.y <= 50) {
@@ -1051,7 +1084,7 @@ void lockscreenOpen() {
       }
       while (ts.touched()) {}
     }
-    drawTime(0, blue);
+    drawTime(0, blue, false);
     if (digitalRead(LOCK_PIN) == 0) {
       lock();
     }
