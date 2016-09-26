@@ -15,7 +15,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 #define FONA_RX 2
 #define FONA_TX 3
 #define FONA_RST -1
-#define FONA_RI 0
+#define FONA_RI 6
 #define FONA_KEY 8
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
@@ -61,7 +61,7 @@ byte password[] = {0, 0, 0, 0};
 byte givenPassword[] = {' ', ' ', ' ', ' '};
 
 byte bl = 12;
-byte volume = 60;
+byte volume = 10;
 bool screenDimmed = false;
 byte dimmedBL;
 byte audio = FONA_EXTAUDIO;
@@ -76,8 +76,8 @@ long int updateTimer = millis();
 
 const int appX[] = {20, 20, 20, 20, 20};
 const int appY[] = {70, 120, 170, 220, 270};
-const char* appName[5] = {"Settings", "Phone", "Messages", "Contacts", "Pong"};
-const unsigned int appColor[] = {darkgrey, red, darkgreen, navy, black};
+const char* appName[5] = {"Settings", "Phone", "Messages", "Pong"};
+const unsigned int appColor[] = {darkgrey, red, darkgreen, black};
 
 long idleTimer;
 const int idleTimeout = 60000;
@@ -131,7 +131,7 @@ void setup() {
   if (!fona.begin(*fonaSerial)) {
     tft.setTextColor(red);
     tft.print('x');
-    while(true){}
+    while (true) {}
   }
   tft.print('.');
   fona.setAudio(audio);
@@ -343,7 +343,7 @@ void draw(int a, int b) {
       for (int i = 0; i <= 240; i += 2) {
         tft.drawPixel(i, 160, white);
       }
-      tft.fillRect(80, 310, 80, 10, white);
+      tft.fillRect(80, 240, 80, 10, white);
       break;
   }
   if (a >= 2) {
@@ -504,8 +504,6 @@ void touchHandler(int a) {
         } else if (touchPoint.x >= 0 && touchPoint.y >= 145 && touchPoint.x <= 170 && touchPoint.y <= 210) {
           messages();
         } else if (touchPoint.x >= 0 && touchPoint.y >= 210 && touchPoint.x <= 170 && touchPoint.y <= 260) {
-          contacts();
-        } else if (touchPoint.x >= 0 && touchPoint.y >= 260 && touchPoint.x <= 170 && touchPoint.y <= 320) {
           pong();
         }
         break;
@@ -623,7 +621,7 @@ void settings() {
           }
         }
       }
-      while(ts.touched()){}
+      while (ts.touched()) {}
     }
     drawTime(1, darkgrey);
     if (millis() - idleTimer >= (idleTimeout - 7000)) {
@@ -649,7 +647,7 @@ void phone() {
   touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
   touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
   while (exit == false) {
-    if (fona.incomingCallNumber(incomingCallNumber)) {
+    if (digitalRead(FONA_RI) == 0) {
       if (callStat != CALLING_TO) {
         callStat = CALL_FROM;
       } else {
@@ -786,6 +784,12 @@ void phone() {
           if (willCall == true) {
             fona.callPhone(givenPNumber);
             callStat = CALLING_TO;
+          } else {
+            tft.setTextSize(2);
+            tft.setTextColor(black, white);
+            tft.setCursor(20, 200);
+            tft.print(F("Call to number"));
+            tft.drawFastHLine(0, 240, 240, darkgrey);
           }
           tft.setTextSize(2);
           tft.setTextColor(black, white);
@@ -894,49 +898,56 @@ void messages() {
   exitApp();
 }
 
-void contacts() {
-  draw(CONTACTS, 1);
-  bool exit = false;
-  TS_Point touchPoint = ts.getPoint();
-  touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
-  touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
-  while (exit == false) {
-    if (ts.touched()) {
-      idleTimer = millis();
-      if (screenDimmed) {
-        backlight(bl);
-        screenDimmed = false;
-      } else {
-        TS_Point touchPoint = ts.getPoint();
-        touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
-        touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
-        if (touchPoint.y <= 50) {
-          exit = true;
-        }
-      }
-    }
-    drawTime(1, blue);
-    if (millis() - idleTimer >= (idleTimeout - 7000)) {
-      screenDimmed = true;
-      dimmedBL = (bl / 2);
-      backlight(dimmedBL);
-      if (millis() - idleTimer >= idleTimeout) {
-        lock();
-        idleTimer = millis();
-        screenDimmed = false;
-      }
-    }
-  }
-  exitApp();
-}
-
 void pong() {
   draw(PONG, 1);
   bool exit = false;
+  byte ballX = 120;
+  byte ballY = 160;
+  byte ballXSpeed = 5;
+  byte ballYSpeed = -5;
+  byte paddleX = 80;
+  byte oldPaddleX = paddleX;
   TS_Point touchPoint = ts.getPoint();
   touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
   touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
   while (exit == false) {
+    if (ballXSpeed > 0 || ballYSpeed > 0) {
+      tft.fillRect(ballX, ballY, 10, 10, white);
+    }
+    if (oldPaddleX != paddleX) {
+      tft.fillRect(oldPaddleX, 240, 80, 10, black);
+      tft.fillRect(paddleX, 240, 80, 10, white);
+      oldPaddleX = paddleX;
+    }
+    delay(50);
+    if (ballXSpeed > 0 || ballYSpeed > 0) {
+      tft.fillRect(ballX, ballY, 10, 10, black);
+    }
+    ballX = (ballX + ballXSpeed);
+    ballY = (ballY + ballYSpeed);
+    if (ballX <= 1 || ballX >= 230) {
+      ballXSpeed = -ballXSpeed;
+    }
+    if (ballY <= 1) {
+      ballYSpeed = -ballYSpeed;
+    }
+    if (ballY >= 228) {
+      if (ballX >= paddleX && ballX <= (paddleX + 80)) {
+        ballYSpeed = -ballYSpeed;
+      } else {
+        tft.setCursor(30, 20);
+        tft.setTextSize(4);
+        tft.setTextColor(white, black);
+        tft.print(F("YOU LOSE"));
+        ballXSpeed = 0;
+        ballYSpeed = 0;
+      }
+    }
+    if (ballY >= 145 && ballY <= 175) {
+      for (int i = 0; i <= 240; i += 2) {
+        tft.drawPixel(i, 160, white);
+      }
+    }
     if (ts.touched()) {
       idleTimer = millis();
       if (screenDimmed) {
@@ -946,6 +957,9 @@ void pong() {
         TS_Point touchPoint = ts.getPoint();
         touchPoint.x = map(touchPoint.x, 0, 240, 240, 0);
         touchPoint.y = map(touchPoint.y, 0, 320, 320, 0);
+        if (touchPoint.x <= 200 && touchPoint.x >= 40) {
+          paddleX = (touchPoint.x - 40);
+        }
         if (touchPoint.y <= 50) {
           exit = true;
         }
