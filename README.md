@@ -17,7 +17,7 @@ Future implementations (I already know how to make these, but there's only a sma
 
 To make the about-button (in the settings) work correctly, the text it will write on the screen has to be in the Arduino's built-in (or external, but it will require more physical space) EEPROM. This will free up the Arduino's flash memory a bit (or more than a bit (binary-digit)).
 
-### **Operating system: FatOS 0.8**
+### **Operating system: FatOS 0.8**, made by nH 10-9
 
 The logo:
 
