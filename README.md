@@ -7,12 +7,12 @@ FatFone is a simple mobile phone. It is called FatFone, because it is quite thic
 
 Functions:
 - Phone calls (calling, answering)
-- Pong game
 - Screen brightness and loudspeaker volume adjusting
 - SMS sending
 
 Future implementations (I already know how to make these, but there's only a small bit of flash memeory left):
 - SMS receiving
+- Pong game (already in the code, but commented out)
 - Phone book
 - Use RGB LED to display status (battery state, are there any new phone calls etc.)
 
