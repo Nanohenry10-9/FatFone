@@ -55,6 +55,10 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define batteryX 220
 #define batteryY 5
 
+#define SMS_MAIN 0
+#define SMS_SEND 1
+#define SMS_READ 2
+
 #define appSize 90
 byte appLocX[] = {20, 130, 20, 130};
 byte appLocY[] = {70, 70, 180, 180};
@@ -76,9 +80,11 @@ bool appExit = false;
 
 char givenPNumber[10] = {' '};
 int pNumCount = 0;
+int mesLocY[] = {70, 130, 190, 250};
 
 void setup() {
   pinMode(TFT_BL, OUTPUT);
+  digitalWrite(TFT_BL, LOW);
   //pinMode(FONA_KEY, OUTPUT);
   //digitalWrite(FONA_KEY, HIGH);
   tft.begin();
@@ -133,7 +139,6 @@ void loop() {
     updateTimer = millis();
   }
   if (ts.touched()) {
-    TS_Point touchPoint = ts.getPoint();
     touchHandler();
   }
 }
@@ -153,21 +158,33 @@ void draw(int a) {
     case APP_PHONE:
       drawTime(red);
       drawBattery();
+      drawText("BACK", 5, 18, 2, white, red);
       tft.fillRect(20, 70, 90, 50, green);
       drawText("PICK UP", 25, 87, 2, white, green);
       tft.fillRect(130, 70, 90, 50, red);
-      drawText("END", 160, 87, 2, white, red);
+      drawText("END", 157, 87, 2, white, red);
       tft.fillRect(20, 130, 200, 40, lightgrey);
-      tft.drawRect(20, 130, 100, 40, black);
-      tft.drawRect(120, 130, 100, 40, black);
-      drawText("CONTROL", 30, 150, 2, black, lightgrey);
-      drawText("KEYPAD", 140, 150, 2, black, lightgrey);
+      drawText("KEYPAD", 85, 142, 2, black, lightgrey);
+      drawText("VOLUME", 85, 190, 2, black, white);
+      tft.drawFastHLine(20, 230, 200, black);
+      tft.drawFastVLine(20, 210, 40, black);
+      tft.drawFastVLine(220, 210, 40, black);
+      tft.drawFastVLine(120, 215, 30, black);
+      tft.drawFastVLine(70, 220, 20, black);
+      tft.drawFastVLine(170, 220, 20, black);
+      tft.fillRect(map(volume, 0, 100, 20, 210), 210, 10, 40, darkgrey);
       break;
     case APP_SMS:
       drawTime(green);
       drawBattery();
+      drawText("BACK", 5, 18, 2, white, green);
+      tft.fillRect(20, 70, 90, 90, darkgrey);
+      tft.fillRect(130, 70, 90, 90, darkgrey);
+      drawText("SEND", 40, 105, 2, white, darkgrey);
+      drawText("READ", 150, 105, 2, white, darkgrey);
       break;
     case APP_SETTINGS:
+      drawText("BACK", 5, 18, 2, white, lightgrey);
       drawTime(lightgrey);
       drawBattery();
       break;
@@ -178,7 +195,6 @@ void draw(int a) {
       tft.fillRect(0, 160, 240, 320, white);
       tft.drawFastHLine(0, 159, 240, black);
       tft.drawFastHLine(0, 160, 240, black);
-
       tft.setTextSize(5);
       tft.setTextColor(black, white);
       tft.setCursor(20, 170);
@@ -323,8 +339,10 @@ void touchHandler() {
 }
 
 void drawBattery() {
-  tft.fillRect(batteryX, batteryY, 15, 40, white);
   tft.drawRect(batteryX, batteryY, 15, 40, black);
+  tft.drawRect((batteryX + 1), (batteryY + 1), 13, 38, black);
+  tft.drawFastHLine((batteryX + 5), (batteryY - 2), 5, black);
+  tft.drawFastHLine((batteryX + 5), (batteryY - 1), 5, black);
   if (getBattery() <= 10) {
     tft.fillRect((batteryX + 2), (batteryY + 36), 11, 2, red);
   } else if (getBattery() <= 20) {
@@ -348,7 +366,11 @@ byte getBattery() {
 
 void drawTime(uint16_t bgcolor) {
   fona.getTime(RTCtime, 23);
-  tft.setCursor(timeX, timeY);
+  if (bgcolor != blue && bgcolor != cyan) {
+    tft.setCursor((timeX + 20), timeY);
+  } else {
+    tft.setCursor(timeX, timeY);
+  }
   tft.setTextSize(4);
   tft.setTextColor(white, bgcolor);
   for (int i = 10; i < 15; i++) {
@@ -369,126 +391,158 @@ void phoneApp() {
       TS_Point tPoint = ts.getPoint();
       int x = map(tPoint.x, 0, 240, 240, 0);
       int y = map(tPoint.y, 0, 320, 320, 0);
-      if (y <= 40) {
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, red);
         appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, red);
       }
-      if (x <= 10 || x >= 230) {
-        if (page == 0) {
+      if (page == 0) {
+        if (x >= 20 && y >= 70 && x <= 110 && y <= 120) {
+          drawText("PICK UP", 25, 87, 2, black, green);
+          while (ts.touched()) {}
+          fona.pickUp();
+          drawText("PICK UP", 25, 87, 2, white, green);
+        } else if (x >= 130 && y >= 70 && x <= 220 && y <= 120) {
+          drawText("END", 157, 87, 2, black, red);
+          while (ts.touched()) {}
+          fona.hangUp();
+          drawText("END", 157, 87, 2, white, red);
+        } else if (x >= 20 && y >= 130 && x <= 220 && y <= 170) {
+          drawText("KEYPAD", 85, 142, 2, white, lightgrey);
+          while (ts.touched()) {}
+          drawText("KEYPAD", 85, 142, 2, black, lightgrey);
           page = 1;
           tft.fillRect(0, 50, 240, 270, white);
           tft.drawRect(10, 60, 220, 50, black);
           tft.drawRect(11, 61, 218, 48, black);
-          tft.fillRect(20, 120, 200, 30, green);
-          drawText("CALL", 85, 125, 3, white, green);
+          tft.fillRect(125, 120, 95, 30, green);
+          drawText("CALL", 140, 125, 3, white, green);
+          tft.fillRect(20, 120, 95, 30, red);
+          drawText("BACK", 35, 125, 3, white, red);
           draw(KEYPAD_NUMS);
           tft.setTextSize(3);
           tft.setTextColor(black, white);
           tft.setCursor(25, 75);
           tft.print(givenPNumber);
-        } else {
+        } else if (x >= 20 && y >= 200 && x <= 220 && y <= 240) {
+          while (ts.touched()) {
+            tPoint = ts.getPoint();
+            x = map(tPoint.x, 0, 240, 240, 0);
+            y = map(tPoint.y, 0, 320, 320, 0);
+            if (x >= 20 && x <= 220) {
+              tft.fillRect(map(volume, 0, 100, 20, 210), 210, 10, 40, white);
+              tft.drawFastHLine(20, 230, 200, black);
+              tft.drawFastVLine(20, 210, 40, black);
+              tft.drawFastVLine(220, 210, 40, black);
+              tft.drawFastVLine(120, 215, 30, black);
+              tft.drawFastVLine(70, 220, 20, black);
+              tft.drawFastVLine(170, 220, 20, black);
+              volume = map(x, 20, 220, 0, 100);
+              tft.fillRect(map(volume, 0, 100, 20, 210), 210, 10, 40, darkgrey);
+            }
+          }
+          setAllVolumes(volume);
+        }
+      } else {
+        if (x >= 0 && y >= 160 && x <= 75 && y <= 220) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '1';
+            pNumCount++;
+          }
+        } else if (x >= 75 && y >= 160 && x <= 120 && y <= 220) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '2';
+            pNumCount++;
+          }
+        } else if (x >= 120 && y >= 160 && x <= 185 && y <= 220) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '3';
+            pNumCount++;
+          }
+        } else if (x >= 185 && y >= 160 && x <= 240 && y <= 220) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '4';
+            pNumCount++;
+          }
+        } else if (x >= 0 && y >= 220 && x <= 75 && y <= 260) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '5';
+            pNumCount++;
+          }
+        } else if (x >= 75 && y >= 220 && x <= 120 && y <= 260) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '6';
+            pNumCount++;
+          }
+        } else if (x >= 120 && y >= 220 && x <= 186 && y <= 260) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '7';
+            pNumCount++;
+          }
+        } else if (x >= 185 && y >= 220 && x <= 240 && y <= 260) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '8';
+            pNumCount++;
+          }
+        } else if (x >= 0 && y >= 260 && x <= 75 && y <= 320) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '9';
+            pNumCount++;
+          }
+        } else if (x >= 75 && y >= 260 && x <= 120 && y <= 320) {
+          if (pNumCount < 9) {
+            givenPNumber[pNumCount] = '0';
+            pNumCount++;
+          }
+        } else if (x >= 120 && y >= 260 && x <= 240 && y <= 320) {
+          if (pNumCount > 0) {
+            pNumCount--;
+            givenPNumber[pNumCount] = ' ';
+          }
+        } else if (x >= 120 && y >= 120 && x <= 220 && y <= 150) {
+          drawText("CALL", 140, 125, 3, black, green);
+          while (ts.touched()) {}
+          fona.callPhone(givenPNumber);
+          for (int i = 0; i < 9; i++) {
+            givenPNumber[i] = ' ';
+          }
+          pNumCount = 0;
+          tft.setTextSize(3);
+          tft.setTextColor(black, white);
+          tft.setCursor(25, 75);
+          tft.print(givenPNumber);
+          drawText("CALL", 140, 125, 3, white, green);
+        } else if (x >= 20 && y >= 120 && x <= 115 && y <= 150) {
+          drawText("BACK", 35, 125, 3, black, red);
+          while (ts.touched()) {}
+          drawText("BACK", 35, 125, 3, white, red);
           page = 0;
           tft.fillRect(0, 50, 240, 270, white);
           tft.fillRect(20, 70, 90, 50, green);
           drawText("PICK UP", 25, 87, 2, white, green);
           tft.fillRect(130, 70, 90, 50, red);
-          drawText("END", 160, 87, 2, white, red);
+          drawText("END", 157, 87, 2, white, red);
+          tft.fillRect(20, 130, 200, 40, lightgrey);
+          drawText("KEYPAD", 85, 142, 2, black, lightgrey);
+          drawText("VOLUME", 85, 190, 2, black, white);
+          tft.drawFastHLine(20, 230, 200, black);
+          tft.drawFastVLine(20, 210, 40, black);
+          tft.drawFastVLine(220, 210, 40, black);
+          tft.drawFastVLine(120, 215, 30, black);
+          tft.drawFastVLine(70, 220, 20, black);
+          tft.drawFastVLine(170, 220, 20, black);
+          tft.fillRect(map(volume, 0, 100, 20, 210), 210, 10, 40, darkgrey);
         }
-      } else {
-        TS_Point tPoint = ts.getPoint();
-        x = map(tPoint.x, 0, 240, 240, 0);
-        y = map(tPoint.y, 0, 320, 320, 0);
-        if (page == 0) {
-          if (x >= 20 && y >= 70 && x <= 110 && y <= 120) {
-            drawText("PICK UP", 25, 87, 2, black, green);
-            while (ts.touched()) {}
-            drawText("PICK UP", 25, 87, 2, white, green);
-            fona.pickUp();
-          } else if (x >= 130 && y >= 70 && x <= 220 && y <= 120) {
-            drawText("END", 160, 87, 2, black, red);
-            while (ts.touched()) {}
-            drawText("END", 160, 87, 2, white, red);
-            fona.hangUp();
-          }
-        } else {
-          if (x >= 0 && y >= 160 && x <= 75 && y <= 220) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '1';
-              pNumCount++;
-            }
-          } else if (x >= 75 && y >= 160 && x <= 120 && y <= 220) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '2';
-              pNumCount++;
-            }
-          } else if (x >= 120 && y >= 160 && x <= 185 && y <= 220) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '3';
-              pNumCount++;
-            }
-          } else if (x >= 185 && y >= 160 && x <= 240 && y <= 220) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '4';
-              pNumCount++;
-            }
-          } else if (x >= 0 && y >= 220 && x <= 75 && y <= 260) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '5';
-              pNumCount++;
-            }
-          } else if (x >= 75 && y >= 220 && x <= 120 && y <= 260) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '6';
-              pNumCount++;
-            }
-          } else if (x >= 120 && y >= 220 && x <= 186 && y <= 260) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '7';
-              pNumCount++;
-            }
-          } else if (x >= 185 && y >= 220 && x <= 240 && y <= 260) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '8';
-              pNumCount++;
-            }
-          } else if (x >= 0 && y >= 260 && x <= 75 && y <= 320) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '9';
-              pNumCount++;
-            }
-          } else if (x >= 75 && y >= 260 && x <= 120 && y <= 320) {
-            if (pNumCount < 9) {
-              givenPNumber[pNumCount] = '0';
-              pNumCount++;
-            }
-          } else if (x >= 120 && y >= 260 && x <= 240 && y <= 320) {
-            if (pNumCount > 0) {
-              pNumCount--;
-              givenPNumber[pNumCount] = ' ';
-            }
-          } else if (x >= 20 && y >= 120 && x <= 220 && y <= 150) {
-            drawText("CALL", 85, 125, 3, black, green);
-            while (ts.touched()) {}
-            drawText("CALL", 85, 125, 3, white, green);
-            fona.callPhone(givenPNumber);
-            for (int i = 0; i < 9; i++) {
-              givenPNumber[i] = ' ';
-            }
-            pNumCount = 0;
-            tft.setTextSize(3);
-            tft.setTextColor(black, white);
-            tft.setCursor(25, 75);
-            tft.print(givenPNumber);
-          }
-          if (y >= 160) {
-            tft.setTextSize(3);
-            tft.setTextColor(black, white);
-            tft.setCursor(25, 75);
-            tft.print(givenPNumber);
-          }
+        if (y >= 160) {
+          tft.setTextSize(3);
+          tft.setTextColor(black, white);
+          tft.setCursor(25, 75);
+          tft.print(givenPNumber);
         }
       }
-      while (ts.touched()) {}
     }
+    while (ts.touched()) {}
   }
   appExit = false;
   exitApp();
@@ -496,14 +550,59 @@ void phoneApp() {
 
 void smsApp() {
   draw(APP_SMS);
+  byte page = SMS_MAIN;
+  byte selectedField = 0;
   while (appExit == false) {
     if (ts.touched()) {
       TS_Point tPoint = ts.getPoint();
       int x = map(tPoint.x, 0, 240, 240, 0);
       int y = map(tPoint.y, 0, 320, 320, 0);
-      if (tPoint.y <= 30) {
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, green);
         appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, green);
       }
+      if (x >= 20 && y >= 70 && x <= 110 && y <= 160) {
+        drawText("SEND", 40, 105, 2, black, darkgrey);
+        while (ts.touched()) {}
+        drawText("SEND", 40, 105, 2, white, darkgrey);
+        page = SMS_SEND;
+        tft.fillRect(0, 50, 240, 270, white);
+        tft.drawRect(5, 60, 230, 40, black);
+        tft.drawRect(5, 110, 160, 40, black);
+        tft.fillRect(170, 110, 65, 40, green);
+        drawText("SEND", 182, 120, 2, black, green);
+      } else if (x >= 130 && y >= 70 && x <= 220 && y <= 160) {
+        drawText("READ", 150, 105, 2, black, darkgrey);
+        while (ts.touched()) {}
+        drawText("READ", 150, 105, 2, white, darkgrey);
+        page = SMS_READ;
+        tft.fillRect(0, 50, 240, 270, white);
+        tft.drawFastHLine(20, 120, 200, darkgrey);
+        tft.drawFastHLine(20, 180, 200, darkgrey);
+        tft.drawFastHLine(20, 240, 200, darkgrey);
+        tft.drawFastHLine(20, 300, 200, darkgrey);
+        int smsAmount;
+        char message[21] = {' '};
+        char sender[21] = {' '};
+        uint16_t smsLen;
+        smsAmount = fona.getNumSMS();
+        tft.setTextSize(2);
+        tft.setTextColor(black, white);
+        for (byte i = smsAmount; i > 0; i--) {
+          fona.readSMS(i, message, 20, &smsLen);
+          fona.getSMSSender(i, sender, 20);
+          if (smsLen != 0) {
+            tft.setCursor(10, mesLocY[(i - 1)]);
+            tft.print(F("From:"));
+            tft.print(sender);
+            tft.setCursor(10, (mesLocY[(i - 1)] + 25));
+            tft.print(message);
+          }
+        }
+      }
+      while (ts.touched()) {}
     }
   }
   appExit = false;
@@ -517,9 +616,13 @@ void setApp() {
       TS_Point tPoint = ts.getPoint();
       int x = map(tPoint.x, 0, 240, 240, 0);
       int y = map(tPoint.y, 0, 320, 320, 0);
-      if (tPoint.y <= 30) {
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, lightgrey);
         appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, lightgrey);
       }
+      while (ts.touched()) {}
     }
   }
   appExit = false;
@@ -533,7 +636,7 @@ void pongApp() {
       TS_Point tPoint = ts.getPoint();
       int x = map(tPoint.x, 0, 240, 240, 0);
       int y = map(tPoint.y, 0, 320, 320, 0);
-      if (tPoint.y <= 30) {
+      if (y <= 50) {
         appExit = true;
       }
     }

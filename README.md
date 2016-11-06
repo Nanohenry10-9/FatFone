@@ -26,9 +26,10 @@ To make the about-button (in the settings) work correctly, the text it will writ
 
 Functions:
 - Phone calls (calling, answering)
+- SMS receiving/reading
 
 Future implementations:
-- SMS app
+- SMS sending
 - Pong game
 - Settings app
 
