@@ -5,6 +5,9 @@ Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.
 
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
+
+#FatOS 1
+
 Functions:
 - Phone calls (calling, answering)
 - Screen brightness and loudspeaker volume adjusting
@@ -18,7 +21,17 @@ Future implementations (I already know how to make these, but there's only a sma
 
 To make the about-button (in the settings) work correctly, the text it will write on the screen has to be in the Arduino's built-in (or external, but it will require more physical space) EEPROM. This will free up the Arduino's flash memory a bit (or more than a bit (binary-digit)).
 
-### Operating system: FatOS 0.9, made by nH10-9
+
+# FatOS 2
+
+Functions:
+- Phone calls (calling, answering)
+
+Future implementations:
+- SMS app
+- Pong game
+- Settings app
+
 
 The logo:
 

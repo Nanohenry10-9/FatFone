@@ -80,10 +80,10 @@ int lastScreen = 1;
 char RTCtime[23];
 long int updateTimer = millis();
 
-const int appX[] = {20, 20, 20, 20, 20};
-const int appY[] = {70, 120, 170, 220, 270};
-const char* appName[5] = {"Settings", "Phone", "Messages", "Pong"};
-const unsigned int appColor[] = {darkgrey, red, darkgreen, black};
+const int appX[] = {20, 20, 20, 20/*, 20*/};
+const int appY[] = {70, 120, 170, 220/*, 270*/};
+const char* appName[5] = {"Settings", "Phone", "Messages"/*, "Pong"*/};
+const unsigned int appColor[] = {darkgrey, red, darkgreen/*, black*/};
 
 long idleTimer;
 const int idleTimeout = 60000;
@@ -286,7 +286,7 @@ void draw(int a, int b) {
     case MENU:
       tft.fillScreen(cyan);
       tft.fillRect(0, 0, 240, 50, blue);
-      for (int i = 0; i < 5; i++) {
+      for (int i = 0; i < 4; i++) {
         tft.setCursor(appX[i], appY[i]);
         tft.setTextColor(appColor[i], cyan);
         tft.setTextSize(3);
@@ -380,7 +380,7 @@ void draw(int a, int b) {
       tft.fillRect(0, 0, 240, 50, navy);
       drawTime(1, navy, true);
       break;
-    case PONG:
+    /*case PONG:
       tft.fillScreen(black);
       for (int i = 0; i <= 240; i += 2) {
         tft.drawPixel(i, 160, white);
@@ -399,7 +399,7 @@ void draw(int a, int b) {
       tft.setTextSize(4);
       tft.setCursor(90, 100);
       tft.print(F("OK"));
-      break;
+      break;*/
   }
   if (a >= 2) {
     lastScreen = a;
