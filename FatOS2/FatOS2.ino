@@ -1,5 +1,3 @@
-//#include <PinChangeInt.h>
-
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
 #include <Adafruit_FT6206.h>
@@ -55,9 +53,8 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define batteryX 220
 #define batteryY 5
 
-#define SMS_MAIN 0
-#define SMS_SEND 1
-#define SMS_READ 2
+#define SMS_SEND 0
+#define SMS_READ 1
 
 #define appSize 90
 byte appLocX[] = {20, 130, 20, 130};
@@ -80,15 +77,14 @@ bool appExit = false;
 
 char givenPNumber[10] = {' '};
 int pNumCount = 0;
-int mesLocY[] = {70, 130, 190, 250};
+int mesLocY[] = {100, 160, 220, 280};
 
 void setup() {
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, LOW);
-  //pinMode(FONA_KEY, OUTPUT);
-  //digitalWrite(FONA_KEY, HIGH);
   tft.begin();
   tft.setRotation(0);
+  tft.setTextWrap(false);
   tft.fillScreen(navy);
   tft.fillRoundRect(10, 10, 220, 135, 10, cyan);
   tft.setTextSize(12);
@@ -120,12 +116,9 @@ void setup() {
   tft.print('.');
   fona.setPWM(2000);
   setAllVolumes(volume);
-  //pinMode(FONA_RI, INPUT);
-  //pinMode(LOCK_PIN, INPUT_PULLUP);
   ts.begin(40);
   tft.print(F("."));
   fona.setPWM(0);
-  Serial.begin(9600);
   for (int i = 320; i > 0; i--) {
     tft.drawFastHLine(0, i, 240, cyan);
   }
@@ -148,9 +141,9 @@ void draw(int a) {
     case MENU:
       tft.fillScreen(cyan);
       tft.fillRect(0, 0, 240, 50, blue);
-      for (byte i = 0; i < 4; i++) {
-        tft.fillRect(appLocX[i], appLocY[i], appSize, appSize, appColor[i]);
-        drawText(appName[i], (appLocX[i] + appNameX[i]), (appLocY[i] + 35), 2, white, appColor[i]);
+      for (byte a = 0; a < 4; a++) {
+        tft.fillRect(appLocX[a], appLocY[a], appSize, appSize, appColor[a]);
+        drawText(appName[a], (appLocX[a] + appNameX[a]), (appLocY[a] + 35), 2, white, appColor[a]);
       }
       drawTime(blue);
       drawBattery();
@@ -178,10 +171,15 @@ void draw(int a) {
       drawTime(green);
       drawBattery();
       drawText("BACK", 5, 18, 2, white, green);
-      tft.fillRect(20, 70, 90, 90, darkgrey);
-      tft.fillRect(130, 70, 90, 90, darkgrey);
-      drawText("SEND", 40, 105, 2, white, darkgrey);
-      drawText("READ", 150, 105, 2, white, darkgrey);
+      tft.fillRect(0, 50, 60, 40, darkgrey);
+      tft.fillRect(180, 50, 60, 40, darkgrey);
+      drawText("SEND", 5, 60, 2, white, darkgrey);
+      drawText("READ", 188, 60, 2, white, darkgrey);
+      tft.drawRect(10, 95, 220, 40, black);
+      tft.drawRect(10, 140, 220, 40, black);
+      tft.fillRect(60, 50, 120, 40, darkgreen);
+      drawText("SEND", 100, 60, 2, white, darkgreen);
+      draw(KEYPAD_NUMS);
       break;
     case APP_SETTINGS:
       drawText("BACK", 5, 18, 2, white, lightgrey);
@@ -192,20 +190,20 @@ void draw(int a) {
       tft.drawFastHLine(0, 160, 240, white);
       break;
     case KEYPAD_NUMS:
-      tft.fillRect(0, 160, 240, 320, white);
-      tft.drawFastHLine(0, 159, 240, black);
-      tft.drawFastHLine(0, 160, 240, black);
+      tft.fillRect(0, 189, 240, 160, white);
+      tft.drawFastHLine(0, 189, 240, black);
+      tft.drawFastHLine(0, 190, 240, black);
       tft.setTextSize(5);
       tft.setTextColor(black, white);
-      tft.setCursor(20, 170);
-      tft.print(F("1 2 3 4"));
-      tft.setCursor(20, 220);
-      tft.print(F("5 6 7 8"));
-      tft.setCursor(20, 270);
-      tft.print(F("9 0 <<"));
+      tft.setCursor(20, 195);
+      tft.print(F("1 2 3 4")); // 25
+      tft.setCursor(20, 237);
+      tft.print(F("5 6 7 8")); // 17
+      tft.setCursor(20, 279);
+      tft.print(F("9 0 <<")); // 9
       break;
     case KEYPAD_CHARS:
-      tft.fillRect(0, 160, 240, 320, white);
+      tft.fillRect(0, 229, 240, 90, white);
       tft.drawFastHLine(0, 229, 240, black);
       tft.drawFastHLine(0, 230, 240, black);
       tft.setTextColor(darkgreen);
@@ -320,9 +318,6 @@ void touchHandler() {
   TS_Point tPoint = ts.getPoint();
   int x = map(tPoint.x, 0, 240, 240, 0);
   int y = map(tPoint.y, 0, 320, 320, 0);
-  Serial.print(x);
-  Serial.print('\t');
-  Serial.println(y);
   if (x >= 20 && y >= 70 && x <= 110 && y <= 160) {
     appOnScreen = APP_PHONE;
     openApp(APP_PHONE);
@@ -341,6 +336,7 @@ void touchHandler() {
 void drawBattery() {
   tft.drawRect(batteryX, batteryY, 15, 40, black);
   tft.drawRect((batteryX + 1), (batteryY + 1), 13, 38, black);
+  tft.fillRect((batteryX + 2), (batteryY + 2), 11, 36, white);
   tft.drawFastHLine((batteryX + 5), (batteryY - 2), 5, black);
   tft.drawFastHLine((batteryX + 5), (batteryY - 1), 5, black);
   if (getBattery() <= 10) {
@@ -445,57 +441,57 @@ void phoneApp() {
           setAllVolumes(volume);
         }
       } else {
-        if (x >= 0 && y >= 160 && x <= 75 && y <= 220) {
+        if (x >= 0 && y >= 185 && x <= 75 && y <= 245) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '1';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 160 && x <= 120 && y <= 220) {
+        } else if (x >= 75 && y >= 185 && x <= 120 && y <= 245) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '2';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 160 && x <= 185 && y <= 220) {
+        } else if (x >= 120 && y >= 185 && x <= 185 && y <= 245) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '3';
             pNumCount++;
           }
-        } else if (x >= 185 && y >= 160 && x <= 240 && y <= 220) {
+        } else if (x >= 185 && y >= 185 && x <= 240 && y <= 245) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '4';
             pNumCount++;
           }
-        } else if (x >= 0 && y >= 220 && x <= 75 && y <= 260) {
+        } else if (x >= 0 && y >= 237 && x <= 75 && y <= 277) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '5';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 220 && x <= 120 && y <= 260) {
+        } else if (x >= 75 && y >= 237 && x <= 120 && y <= 277) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '6';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 220 && x <= 186 && y <= 260) {
+        } else if (x >= 120 && y >= 237 && x <= 186 && y <= 277) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '7';
             pNumCount++;
           }
-        } else if (x >= 185 && y >= 220 && x <= 240 && y <= 260) {
+        } else if (x >= 185 && y >= 237 && x <= 240 && y <= 277) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '8';
             pNumCount++;
           }
-        } else if (x >= 0 && y >= 260 && x <= 75 && y <= 320) {
+        } else if (x >= 0 && y >= 269 && x <= 75 && y <= 329) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '9';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 260 && x <= 120 && y <= 320) {
+        } else if (x >= 75 && y >= 269 && x <= 120 && y <= 329) {
           if (pNumCount < 9) {
             givenPNumber[pNumCount] = '0';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 260 && x <= 240 && y <= 320) {
+        } else if (x >= 120 && y >= 269 && x <= 240 && y <= 329) {
           if (pNumCount > 0) {
             pNumCount--;
             givenPNumber[pNumCount] = ' ';
@@ -550,7 +546,7 @@ void phoneApp() {
 
 void smsApp() {
   draw(APP_SMS);
-  byte page = SMS_MAIN;
+  byte page = SMS_SEND;
   byte selectedField = 0;
   while (appExit == false) {
     if (ts.touched()) {
@@ -563,44 +559,88 @@ void smsApp() {
         while (ts.touched()) {}
         drawText("BACK", 5, 18, 2, white, green);
       }
-      if (x >= 20 && y >= 70 && x <= 110 && y <= 160) {
-        drawText("SEND", 40, 105, 2, black, darkgrey);
+      if (x >= 0 && y >= 50 && x <= 60 && y <= 90) {
+        drawText("SEND", 5, 60, 2, black, darkgrey);
         while (ts.touched()) {}
-        drawText("SEND", 40, 105, 2, white, darkgrey);
+        drawText("SEND", 5, 60, 2, white, darkgrey);
         page = SMS_SEND;
-        tft.fillRect(0, 50, 240, 270, white);
-        tft.drawRect(5, 60, 230, 40, black);
-        tft.drawRect(5, 110, 160, 40, black);
-        tft.fillRect(170, 110, 65, 40, green);
-        drawText("SEND", 182, 120, 2, black, green);
-      } else if (x >= 130 && y >= 70 && x <= 220 && y <= 160) {
-        drawText("READ", 150, 105, 2, black, darkgrey);
+        tft.fillRect(0, 90, 240, 270, white);
+        tft.drawRect(10, 95, 220, 40, black);
+        tft.drawRect(10, 140, 220, 40, black);
+        tft.fillRect(60, 50, 120, 40, darkgreen);
+        drawText("SEND", 100, 60, 2, white, darkgreen);
+        draw(KEYPAD_NUMS);
+      } else if (x >= 180 && y >= 50 && x <= 240 && y <= 90) {
+        drawText("READ", 188, 60, 2, black, darkgrey);
         while (ts.touched()) {}
-        drawText("READ", 150, 105, 2, white, darkgrey);
+        drawText("READ", 188, 60, 2, white, darkgrey);
         page = SMS_READ;
-        tft.fillRect(0, 50, 240, 270, white);
-        tft.drawFastHLine(20, 120, 200, darkgrey);
-        tft.drawFastHLine(20, 180, 200, darkgrey);
-        tft.drawFastHLine(20, 240, 200, darkgrey);
-        tft.drawFastHLine(20, 300, 200, darkgrey);
+        tft.fillRect(0, 90, 240, 270, white);
+        tft.fillRect(60, 50, 120, 40, red);
+        drawText("CLEAR", 90, 60, 2, white, red);
+        tft.drawFastHLine(20, 150, 200, darkgrey);
+        tft.drawFastHLine(20, 210, 200, darkgrey);
+        tft.drawFastHLine(20, 270, 200, darkgrey);
         int smsAmount;
-        char message[21] = {' '};
-        char sender[21] = {' '};
+        char message1[21] = {' '};
+        char message2[21] = {' '};
+        char message3[21] = {' '};
+        char sender1[21] = {' '};
+        char sender2[21] = {' '};
+        char sender3[21] = {' '};
         uint16_t smsLen;
         smsAmount = fona.getNumSMS();
+        if (smsAmount > 3) {
+          smsAmount = 3;
+        }
         tft.setTextSize(2);
         tft.setTextColor(black, white);
-        for (byte i = smsAmount; i > 0; i--) {
-          fona.readSMS(i, message, 20, &smsLen);
-          fona.getSMSSender(i, sender, 20);
-          if (smsLen != 0) {
-            tft.setCursor(10, mesLocY[(i - 1)]);
-            tft.print(F("From:"));
-            tft.print(sender);
-            tft.setCursor(10, (mesLocY[(i - 1)] + 25));
-            tft.print(message);
-          }
+        tft.setCursor(50, mesLocY[0]);
+        tft.print(F("Loading..."));
+        fona.readSMS(0, message1, 20, &smsLen);
+        fona.getSMSSender(0, sender1, 20);
+        int i = 1;
+        while (smsLen == 0) {
+          fona.readSMS(i, message1, 20, &smsLen);
+          fona.getSMSSender(i, sender1, 20);
+          i++;
         }
+        fona.readSMS(1, message2, 20, &smsLen);
+        fona.getSMSSender(1, sender2, 20);
+        i = 0;
+        while (smsLen == 0) {
+          fona.readSMS(i, message2, 20, &smsLen);
+          fona.getSMSSender(i, sender2, 20);
+          i++;
+        }
+        fona.readSMS(2, message3, 20, &smsLen);
+        fona.getSMSSender(2, sender3, 20);
+        i = 0;
+        while (smsLen == 0) {
+          fona.readSMS(i, message3, 20, &smsLen);
+          fona.getSMSSender(i, sender3, 20);
+          i++;
+        }
+        tft.setCursor(10, mesLocY[0]);
+        tft.print(F("From:"));
+        tft.print(sender1);
+        tft.setCursor(10, (mesLocY[0] + 25));
+        tft.print(message1);
+        tft.setCursor(10, mesLocY[1]);
+        tft.print(F("From:"));
+        tft.print(sender2);
+        tft.setCursor(10, (mesLocY[1] + 25));
+        tft.print(message2);
+        tft.setCursor(10, mesLocY[2]);
+        tft.print(F("From:"));
+        tft.print(sender3);
+        tft.setCursor(10, (mesLocY[2] + 25));
+        tft.print(message3);
+      }
+      if (page == SMS_SEND) {
+
+      } else if (page == SMS_READ) {
+
       }
       while (ts.touched()) {}
     }
