@@ -56,6 +56,8 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define SMS_SEND 0
 #define SMS_READ 1
 
+bool debug = false;
+
 #define appSize 90
 byte appLocX[] = {20, 130, 20, 130};
 byte appLocY[] = {70, 70, 180, 180};
@@ -548,6 +550,12 @@ void smsApp() {
   draw(APP_SMS);
   byte page = SMS_SEND;
   byte selectedField = 0;
+  char message1[21] = {' '};
+  char message2[21] = {' '};
+  char message3[21] = {' '};
+  char sender1[21] = {' '};
+  char sender2[21] = {' '};
+  char sender3[21] = {' '};
   while (appExit == false) {
     if (ts.touched()) {
       TS_Point tPoint = ts.getPoint();
@@ -582,60 +590,96 @@ void smsApp() {
         tft.drawFastHLine(20, 210, 200, darkgrey);
         tft.drawFastHLine(20, 270, 200, darkgrey);
         int smsAmount;
-        char message1[21] = {' '};
-        char message2[21] = {' '};
-        char message3[21] = {' '};
-        char sender1[21] = {' '};
-        char sender2[21] = {' '};
-        char sender3[21] = {' '};
+        message1[21] = {' '};
+        message2[21] = {' '};
+        message3[21] = {' '};
+        sender1[21] = {' '};
+        sender2[21] = {' '};
+        sender3[21] = {' '};
         uint16_t smsLen;
         smsAmount = fona.getNumSMS();
         if (smsAmount > 3) {
           smsAmount = 3;
         }
-        tft.setTextSize(2);
-        tft.setTextColor(black, white);
-        tft.setCursor(50, mesLocY[0]);
-        tft.print(F("Loading..."));
-        fona.readSMS(0, message1, 20, &smsLen);
-        fona.getSMSSender(0, sender1, 20);
-        int i = 1;
-        while (smsLen == 0) {
-          fona.readSMS(i, message1, 20, &smsLen);
-          fona.getSMSSender(i, sender1, 20);
-          i++;
+        if (smsAmount > 0) {
+          tft.setTextSize(2);
+          tft.setTextColor(black, white);
+          tft.setCursor(50, mesLocY[0]);
+          tft.print(F("Loading..."));
+          tft.setCursor(50, mesLocY[1]);
+          tft.print(F("Loading..."));
+          tft.setCursor(50, mesLocY[2]);
+          tft.print(F("Loading..."));
+          int plus = 0;
+          fona.readSMS(plus, message1, 20, &smsLen);
+          while (smsLen <= 0 && plus < 6) {
+            plus++;
+            fona.readSMS(plus, message1, 20, &smsLen);
+          }
+          fona.getSMSSender(plus, sender1, 20);
+          if (smsLen > 0) {
+            tft.setCursor(10, mesLocY[0]);
+            tft.print(F("#"));
+            if (debug) {
+              tft.print(plus);
+            } else {
+              tft.print(F("1"));
+            }
+            tft.print(F(": "));
+            tft.print(sender1);
+            tft.setCursor(10, (mesLocY[0] + 25));
+            tft.print(message1);
+          } else {
+            tft.setCursor(50, mesLocY[0]);
+            tft.print(F("             "));
+          }
+          plus++;
+          fona.readSMS(plus, message2, 20, &smsLen);
+          while (smsLen <= 0 && plus < 6) {
+            plus++;
+            fona.readSMS(plus, message2, 20, &smsLen);
+          }
+          fona.getSMSSender(plus, sender2, 20);
+          if (smsLen > 0) {
+            tft.setCursor(10, mesLocY[1]);
+            tft.print(F("#"));
+            if (debug) {
+              tft.print(plus);
+            } else {
+              tft.print(F("2"));
+            }
+            tft.print(F(": "));
+            tft.print(sender2);
+            tft.setCursor(10, (mesLocY[1] + 25));
+            tft.print(message2);
+          } else {
+            tft.setCursor(50, mesLocY[1]);
+            tft.print(F("             "));
+          }
+          plus++;
+          fona.readSMS(plus, message3, 20, &smsLen);
+          while (smsLen <= 0 && plus < 6) {
+            plus++;
+            fona.readSMS(plus, message3, 20, &smsLen);
+          }
+          fona.getSMSSender(plus, sender3, 20);
+          if (smsLen > 0) {
+            tft.setCursor(10, mesLocY[2]);
+            tft.print(F("#"));
+            if (debug) {
+              tft.print(plus);
+            } else {
+              tft.print(F("3"));
+            }
+            tft.print(F(": "));
+            tft.print(sender3);
+            tft.setCursor(10, (mesLocY[2] + 25));
+            tft.print(message3);
+          } else {
+            tft.setCursor(50, mesLocY[2]);
+            tft.print(F("             "));
+          }
         }
-        fona.readSMS(1, message2, 20, &smsLen);
-        fona.getSMSSender(1, sender2, 20);
-        i = 0;
-        while (smsLen == 0) {
-          fona.readSMS(i, message2, 20, &smsLen);
-          fona.getSMSSender(i, sender2, 20);
-          i++;
-        }
-        fona.readSMS(2, message3, 20, &smsLen);
-        fona.getSMSSender(2, sender3, 20);
-        i = 0;
-        while (smsLen == 0) {
-          fona.readSMS(i, message3, 20, &smsLen);
-          fona.getSMSSender(i, sender3, 20);
-          i++;
-        }
-        tft.setCursor(10, mesLocY[0]);
-        tft.print(F("From:"));
-        tft.print(sender1);
-        tft.setCursor(10, (mesLocY[0] + 25));
-        tft.print(message1);
-        tft.setCursor(10, mesLocY[1]);
-        tft.print(F("From:"));
-        tft.print(sender2);
-        tft.setCursor(10, (mesLocY[1] + 25));
-        tft.print(message2);
-        tft.setCursor(10, mesLocY[2]);
-        tft.print(F("From:"));
-        tft.print(sender3);
-        tft.setCursor(10, (mesLocY[2] + 25));
-        tft.print(message3);
       }
       if (page == SMS_SEND) {
 
