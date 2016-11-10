@@ -602,6 +602,9 @@ void smsApp() {
         }
         if (smsAmount > 0) {
           drawSMS();
+        } else {
+          tft.setCursor(50, mesLocY[2]);
+          tft.print(F("NO MESSAGES"));
         }
       }
       if (page == SMS_SEND) {
@@ -754,7 +757,13 @@ void smsApp() {
           tft.drawFastHLine(20, 150, 200, darkgrey);
           tft.drawFastHLine(20, 210, 200, darkgrey);
           tft.drawFastHLine(20, 270, 200, darkgrey);
-          drawSMS();
+          int smsAmount = fona.getNumSMS();
+          if (smsAmount > 0) {
+            drawSMS();
+          } else {
+            tft.setCursor(50, mesLocY[2]);
+            tft.print(F("NO MESSAGES"));
+          }
         }
       }
       while (ts.touched()) {}
@@ -784,22 +793,27 @@ void drawSMS() {
   tft.print(F("Loading..."));
   tft.setCursor(50, mesLocY[2]);
   tft.print(F("Loading..."));
-  int plus = 0;
-  fona.readSMS(plus, message1, 20, &smsLen);
-  while (smsLen <= 0 && plus < 6) {
-    plus++;
-    fona.readSMS(plus, message1, 20, &smsLen);
+  int smsFindIndex = 0;
+  int previous1 = 0;
+  int previous2 = 0;
+  int previous3 = 0;
+  for (smsFindIndex = 0; smsFindIndex < 10; smsFindIndex++) {
+    fona.readSMS(smsFindIndex, message1, 20, &smsLen);
+    if (smsLen > 0) { // If there's a message
+      fona.readSMS(previous1, message2, 20, &smsLen);
+      fona.readSMS(previous2, message3, 20, &smsLen);
+      previous3 = previous2;
+      previous2 = previous1;
+      previous1 = smsFindIndex;
+    }
   }
-  fona.getSMSSender(plus, sender1, 20);
+  fona.readSMS(previous1, message1, 20, &smsLen);
   if (smsLen > 0) {
     tft.setCursor(10, mesLocY[0]);
     tft.print(F("#"));
-    if (debug) {
-      tft.print(plus);
-    } else {
-      tft.print(F("1"));
-    }
+    tft.print(F("1"));
     tft.print(F(": "));
+    fona.getSMSSender(previous1, sender1, 20);
     tft.print(sender1);
     tft.setCursor(10, (mesLocY[0] + 25));
     tft.print(message1);
@@ -807,51 +821,33 @@ void drawSMS() {
     tft.setCursor(50, mesLocY[0]);
     tft.print(F("NO MESSAGES"));
   }
-  plus++;
-  fona.readSMS(plus, message2, 20, &smsLen);
-  while (smsLen <= 0 && plus < 6) {
-    plus++;
-    fona.readSMS(plus, message2, 20, &smsLen);
-  }
-  fona.getSMSSender(plus, sender2, 20);
+  fona.readSMS(previous2, message2, 20, &smsLen);
   if (smsLen > 0) {
     tft.setCursor(10, mesLocY[1]);
     tft.print(F("#"));
-    if (debug) {
-      tft.print(plus);
-    } else {
-      tft.print(F("2"));
-    }
+    tft.print(F("2"));
     tft.print(F(": "));
+    fona.getSMSSender(previous2, sender2, 20);
     tft.print(sender2);
     tft.setCursor(10, (mesLocY[1] + 25));
     tft.print(message2);
   } else {
     tft.setCursor(50, mesLocY[1]);
-    tft.print(F("             "));
+    tft.print(F("            "));
   }
-  plus++;
-  fona.readSMS(plus, message3, 20, &smsLen);
-  while (smsLen <= 0 && plus < 6) {
-    plus++;
-    fona.readSMS(plus, message3, 20, &smsLen);
-  }
-  fona.getSMSSender(plus, sender3, 20);
+  fona.readSMS(previous3, message3, 20, &smsLen);
   if (smsLen > 0) {
     tft.setCursor(10, mesLocY[2]);
     tft.print(F("#"));
-    if (debug) {
-      tft.print(plus);
-    } else {
-      tft.print(F("3"));
-    }
+    tft.print(F("3"));
     tft.print(F(": "));
+    fona.getSMSSender(previous3, sender3, 20);
     tft.print(sender3);
     tft.setCursor(10, (mesLocY[2] + 25));
     tft.print(message3);
   } else {
     tft.setCursor(50, mesLocY[2]);
-    tft.print(F("             "));
+    tft.print(F("            "));
   }
 }
 
