@@ -6,7 +6,7 @@ Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
 
-#FatOS 1
+# FatOS 1
 
 Functions:
 - Phone calls (calling, answering)
@@ -31,6 +31,16 @@ Functions:
 
 Future implementations:
 - Settings app
+
+
+# FatOS 3
+
+The most recent version of FatOS. It's still in version pre-3.00 though.
+
+Required hardware:
+- Arduino MEGA ADK
+- SmartGPU 2 320x480 pixel 3.5" display
+- uSD card (and system files like graphics)
 
 
 The logo:
