@@ -58,14 +58,17 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define NUM_FIELD 0
 #define MSG_FIELD 1
 
-bool debug = false;
+bool debug = 0;
+
+bool locked = 0;
 
 #define appSize 90
-byte appLocX[] = {20, 130, 20, 130};
-byte appLocY[] = {70, 70, 180, 180};
-uint16_t appColor[] = {red, green, lightgrey};
-char* appName[] = {"Phone", "SMS", "Set"};
-byte appNameX[] = {15, 25, 25, 20};
+byte appLocX[] = {20, 130/*, 20, 130*/};
+byte appLocY[] = {70, 70/*, 180, 180*/};
+uint16_t appColor[] = {red, green/*, lightgrey*/};
+char* appName[] = {"Phone", "SMS"/*, "Set"*/};
+byte appNameX[] = {15, 25/*, 25, 20*/};
+byte appAmount = 2;
 
 byte bl = 20;
 byte audio = FONA_EXTAUDIO;
@@ -145,10 +148,12 @@ void draw(int a) {
     case MENU:
       tft.fillScreen(cyan);
       tft.fillRect(0, 0, 240, 50, blue);
-      for (byte a = 0; a < 3; a++) {
+      for (byte a = 0; a < appAmount; a++) {
         tft.fillRect(appLocX[a], appLocY[a], appSize, appSize, appColor[a]);
         drawText(appName[a], (appLocX[a] + appNameX[a]), (appLocY[a] + 35), 2, white, appColor[a]);
       }
+      tft.fillRect(7, 5, 40, 40, red);
+      tft.drawRect(7, 5, 40, 40, black);
       drawTime(blue);
       drawBattery();
       break;
@@ -185,14 +190,14 @@ void draw(int a) {
       drawText("SEND", 100, 60, 2, white, darkgreen);
       draw(KEYPAD_NUMS);
       break;
-    case APP_SETTINGS:
+    /*case APP_SETTINGS:
       drawText("BACK", 5, 18, 2, white, lightgrey);
       drawTime(lightgrey);
       drawBattery();
       break;
-    case APP_PONG:
+      case APP_PONG:
       tft.drawFastHLine(0, 160, 240, white);
-      break;
+      break;*/
     case KEYPAD_NUMS:
       tft.fillRect(0, 189, 240, 160, white);
       tft.drawFastHLine(0, 189, 240, black);
@@ -271,38 +276,38 @@ void openApp(byte a) {
       tft.fillRect(0, 50, 240, 270, white);
       smsApp();
       break;
-    case APP_SETTINGS:
-      for (int i = 0; i < 71; i++) {
-        if (i % 6 == 0 || i == 70) {
-          y = map(i, 0, 70, 180, 0);
-          if (i != 0) {
-            tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
-          }
-          x = map(i, 0, 70, 20, 0);
-          sizeX = map(i, 0, 70, 90, 240);
-          sizeY = map(i, 0, 70, 90, 50);
-          tft.fillRect(x, y, sizeX, sizeY, lightgrey);
-        }
-      }
-      tft.fillRect(0, 50, 240, 270, white);
-      setApp();
-      break;
-      /*case APP_PONG:
+      /*case APP_SETTINGS:
         for (int i = 0; i < 71; i++) {
           if (i % 6 == 0 || i == 70) {
             y = map(i, 0, 70, 180, 0);
             if (i != 0) {
               tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
             }
-            x = map(i, 0, 70, 130, 0);
+            x = map(i, 0, 70, 20, 0);
             sizeX = map(i, 0, 70, 90, 240);
             sizeY = map(i, 0, 70, 90, 50);
-            tft.fillRect(x, y, sizeX, sizeY, black);
+            tft.fillRect(x, y, sizeX, sizeY, lightgrey);
           }
         }
-        tft.fillRect(0, 50, 240, 270, black);
-        pongApp();
-        break;*/
+        tft.fillRect(0, 50, 240, 270, white);
+        setApp();
+        break;
+        case APP_PONG:
+          for (int i = 0; i < 71; i++) {
+            if (i % 6 == 0 || i == 70) {
+              y = map(i, 0, 70, 180, 0);
+              if (i != 0) {
+                tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
+              }
+              x = map(i, 0, 70, 130, 0);
+              sizeX = map(i, 0, 70, 90, 240);
+              sizeY = map(i, 0, 70, 90, 50);
+              tft.fillRect(x, y, sizeX, sizeY, black);
+            }
+          }
+          tft.fillRect(0, 50, 240, 270, black);
+          pongApp();
+          break;*/
   }
 }
 
@@ -322,16 +327,30 @@ void touchHandler() {
   TS_Point tPoint = ts.getPoint();
   int x = map(tPoint.x, 0, 240, 240, 0);
   int y = map(tPoint.y, 0, 320, 320, 0);
-  if (x >= 20 && y >= 70 && x <= 110 && y <= 160) {
+  if (x >= 7 && y >= 5 && x <= 47 && y <= 45) {
+    tft.fillRect(8, 6, 38, 38, maroon);
+    while (ts.touched()) {}
+    tft.fillRect(8, 6, 38, 38, red);
+    lock();
+  } else if (x >= 20 && y >= 70 && x <= 110 && y <= 160) {
+    drawText(appName[0], (appLocX[0] + appNameX[0]), (appLocY[0] + 35), 2, black, appColor[0]);
+    while (ts.touched()) {}
+    drawText(appName[0], (appLocX[0] + appNameX[0]), (appLocY[0] + 35), 2, white, appColor[0]);
     appOnScreen = APP_PHONE;
     openApp(APP_PHONE);
   } else if (x >= 130 && y >= 70 && x <= 220 && y <= 160) {
+    drawText(appName[1], (appLocX[1] + appNameX[1]), (appLocY[1] + 35), 2, black, appColor[1]);
+    while (ts.touched()) {}
+    drawText(appName[1], (appLocX[1] + appNameX[1]), (appLocY[1] + 35), 2, white, appColor[1]);
     appOnScreen = APP_SMS;
     openApp(APP_SMS);
-  } else if (x >= 20 && y >= 180 && x <= 110 && y <= 270) {
+  }/* else if (x >= 20 && y >= 180 && x <= 110 && y <= 270) {
+    drawText(appName[2], (appLocX[2] + appNameX[2]), (appLocY[2] + 35), 2, black, appColor[2]);
+    while (ts.touched()) {}
+    drawText(appName[2], (appLocX[2] + appNameX[2]), (appLocY[2] + 35), 2, white, appColor[2]);
     appOnScreen = APP_SETTINGS;
     openApp(APP_SETTINGS);
-  }/* else if (x >= 130 && y >= 180 && x <= 220 && y <= 270) {
+  } else if (x >= 130 && y >= 180 && x <= 220 && y <= 270) {
     appOnScreen = APP_PONG;
     openApp(APP_PONG);
   }*/
@@ -601,7 +620,7 @@ void smsApp() {
           smsAmount = 3;
         }
         if (smsAmount > 0) {
-          drawSMS();
+          //drawSMS();
         } else {
           tft.setCursor(50, mesLocY[2]);
           tft.print(F("NO MESSAGES"));
@@ -759,7 +778,7 @@ void smsApp() {
           tft.drawFastHLine(20, 270, 200, darkgrey);
           int smsAmount = fona.getNumSMS();
           if (smsAmount > 0) {
-            drawSMS();
+            //drawSMS();
           } else {
             tft.setCursor(50, mesLocY[2]);
             tft.print(F("NO MESSAGES"));
@@ -777,7 +796,7 @@ void smsApp() {
   exitApp();
 }
 
-void drawSMS() {
+/*void drawSMS() {
   char message1[21] = {' '};
   char message2[21] = {' '};
   char message3[21] = {' '};
@@ -849,9 +868,9 @@ void drawSMS() {
     tft.setCursor(50, mesLocY[2]);
     tft.print(F("            "));
   }
-}
+  }*/
 
-void setApp() {
+/*void setApp() {
   draw(APP_SETTINGS);
   while (appExit == false) {
     if (ts.touched()) {
@@ -869,9 +888,9 @@ void setApp() {
   }
   appExit = false;
   exitApp();
-}
+  }
 
-void pongApp() {
+  void pongApp() {
   draw(APP_PONG);
   while (appExit == false) {
     if (ts.touched()) {
@@ -885,13 +904,86 @@ void pongApp() {
   }
   appExit = false;
   exitApp();
-}
+  }*/
 
 void exitApp() {
   for (int i = 320; i > 0; i--) {
     tft.drawFastHLine(0, i, 240, cyan);
   }
   draw(MENU);
+}
+
+void lock() {
+  TS_Point tPoint;
+  int y = 0;
+  byte openState = 0;
+  int timer = 0;
+  for (int i = 20; i >= 0; i--) {
+    backlight(i);
+    delay(40);
+  }
+  while (openState < 4) {
+    tPoint = ts.getPoint();
+    y = map(tPoint.y, 0, 320, 320, 0);
+    if (ts.touched()) {
+      timer = millis();
+      while (ts.touched()) {
+        if (y >= 214 && openState == 0) {
+          while (y >= 214) {
+            tPoint = ts.getPoint();
+            y = map(tPoint.y, 0, 320, 320, 0);
+          }
+          if (y <= 214 && y >= 108) {
+            openState = 1;
+          }
+        }
+        tPoint = ts.getPoint();
+        y = map(tPoint.y, 0, 320, 320, 0);
+        if (y <= 214 && y >= 108 && openState == 1) {
+          while (y <= 214 && y >= 108) {
+            tPoint = ts.getPoint();
+            y = map(tPoint.y, 0, 320, 320, 0);
+          }
+          if (y <= 108) {
+            openState = 2;
+          } else {
+            openState = 0;
+          }
+        }
+        tPoint = ts.getPoint();
+        y = map(tPoint.y, 0, 320, 320, 0);
+        if (y <= 108 && openState == 2) {
+          while (y <= 108) {
+            tPoint = ts.getPoint();
+            y = map(tPoint.y, 0, 320, 320, 0);
+          }
+          if (y >= 108 && y <= 214) {
+            openState = 3;
+          } else {
+            openState = 0;
+          }
+        }
+        tPoint = ts.getPoint();
+        y = map(tPoint.y, 0, 320, 320, 0);
+        if (y >= 108 && y <= 214 && openState == 3) {
+          while (y >= 108 && y <= 214) {
+            tPoint = ts.getPoint();
+            y = map(tPoint.y, 0, 320, 320, 0);
+          }
+          if (y >= 214 && timer <= 400) {
+            openState = 4;
+          } else {
+            openState = 0;
+            timer = millis();
+          }
+        }
+      }
+    }
+  }
+  for (int i = 0; i <= 20; i++) {
+    backlight(i);
+    delay(10);
+  }
 }
 
 
