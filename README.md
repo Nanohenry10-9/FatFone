@@ -1,7 +1,7 @@
 # FatFone
 The 2nd generation of [poDuino](https://github.com/Nanohenry10-9/poDuino).
 
-Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.adafruit.com/product/1947), [Adafruit Fona 800 Shield for Arduino](https://www.adafruit.com/product/2468) (with a loudspaker, microphone, a mini vibrator motor and a 1200mAh 3.7 volt battery), an [Arduino UNO](https://www.arduino.cc/en/Main/ArduinoBoardUno), a pushbutton and a RGB LED.
+Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.adafruit.com/product/1947), [Adafruit Fona 800 Shield for Arduino](https://www.adafruit.com/product/2468) (with a loudspaker, microphone, a mini vibrator motor and a 1200mAh 3.7 volt battery), an [Arduino UNO](https://www.arduino.cc/en/Main/ArduinoBoardUno), a pushbutton and a RGB LED. NOTE: this hardware is only for FatFone 1. FatFOne 2 (FatOS 3 and up) require another hardware (described below).
 
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
@@ -24,6 +24,8 @@ To make the about-button (in the settings) work correctly, the text it will writ
 
 # FatOS 2
 
+Runs on FatFone 1 (same with FatOS 1).
+
 Functions:
 - Phone calls (calling, answering)
 - SMS receiving/reading and sending
@@ -33,14 +35,15 @@ Future implementations:
 - Settings app
 
 
-# FatOS 3
+# FatOS 3 (FatFone 2)
 
-The most recent version of FatOS. It's still in version pre-3.00 though.
+The most recent version of FatOS, which runs on FatFone 2. It's still in version pre-3.00 though.
 
 Required hardware:
 - Arduino MEGA ADK
+- Adafruit FONA 800 shield for Arduino (described at top of README)
 - SmartGPU 2 320x480 pixel 3.5" display
-- uSD card (and system files like graphics)
+- uSD card (and system files like graphics on the SD)
 
 
 The logo:
