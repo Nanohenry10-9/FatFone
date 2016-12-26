@@ -8,6 +8,8 @@ FatFone is a simple mobile phone. It is called FatFone, because it is quite thic
 
 # FatOS 1
 
+Ver. 1.50
+
 Functions:
 - Phone calls (calling, answering)
 - Screen brightness and loudspeaker volume adjusting
@@ -24,7 +26,9 @@ To make the about-button (in the settings) work correctly, the text it will writ
 
 # FatOS 2
 
-Runs on FatFone 1 (same with FatOS 1).
+Ver. 2.8
+
+Runs on FatFone 1 or FatFone 1M (same with FatOS 1). 
 
 Functions:
 - Phone calls (calling, answering)
@@ -37,13 +41,18 @@ Future implementations:
 
 # FatOS 3 (FatFone 2)
 
-The most recent version of FatOS, which runs on FatFone 2. It's still in version pre-3.00 though.
+The most recent version of FatOS, which runs on FatFone 2.
+
+Ver. pre-3.01
 
 Required hardware:
 - Arduino MEGA ADK
 - Adafruit FONA 800 shield for Arduino (described at top of README)
 - SmartGPU 2 320x480 pixel 3.5" display
 - uSD card (and system files like graphics on the SD)
+- RGB (status) LED
+- VL6180X Adafruit Time of Flight sensor
+- ADXL335 Adafruit Accelerometer
 
 
 The logo:
