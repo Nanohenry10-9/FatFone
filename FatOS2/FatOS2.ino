@@ -10,12 +10,6 @@ Adafruit_FT6206 ts = Adafruit_FT6206();
 #define TFT_BL 5
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
-#define LOCK_PIN A0
-#define LED_R A1
-#define LED_G A2
-#define LED_B A3
-#define SD_CS 4
-
 #define FONA_RX 2
 #define FONA_TX 3
 #define FONA_RST -1
@@ -70,7 +64,7 @@ char* appName[] = {"Phone", "SMS"/*, "Set"*/};
 byte appNameX[] = {15, 25/*, 25, 20*/};
 byte appAmount = 2;
 
-byte bl = 20;
+byte bl = 12;
 byte audio = FONA_EXTAUDIO;
 byte volume = 50;
 
@@ -82,7 +76,7 @@ byte appOnScreen = 0;
 
 bool appExit = false;
 
-char givenPNumber[10] = {' '};
+char givenPNumber[14] = {' '};
 int mesLocY[] = {100, 160, 220, 280};
 
 char chars[] = "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ.!? ";
@@ -115,6 +109,7 @@ void setup() {
   }
   fonaSerial->begin(4800);
   tft.print('.');
+  fona.begin(*fonaSerial);
   if (!fona.begin(*fonaSerial)) {
     tft.setTextColor(red);
     tft.print('x');
@@ -126,6 +121,7 @@ void setup() {
   fona.setPWM(2000);
   fona.setAllVolumes(volume);
   ts.begin(40);
+  fona.enableRTC(1);
   tft.print(F("."));
   fona.setPWM(0);
   for (int i = 320; i > 0; i--) {
@@ -211,7 +207,11 @@ void draw(int a) {
       tft.setCursor(20, 237);
       tft.print(F("5 6 7 8"));
       tft.setCursor(20, 279);
-      tft.print(F("9 0 <<"));
+      tft.print(F("9 0"));
+      tft.setCursor(120, 279);
+      tft.print(F("<<"));
+      tft.setCursor(200, 279);
+      tft.print(F("+"));
       break;
     case KEYPAD_CHARS:
       tft.fillRect(0, 189, 240, 160, white);
@@ -462,60 +462,65 @@ void phoneApp() {
           fona.setAllVolumes(volume);
         }
       } else {
-        if (x >= 0 && y >= 185 && x <= 75 && y <= 245) {
-          if (pNumCount < 9) {
+        if (getKPPress() == 1) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '1';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 185 && x <= 120 && y <= 245) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 2) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '2';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 185 && x <= 185 && y <= 245) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 3) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '3';
             pNumCount++;
           }
-        } else if (x >= 185 && y >= 185 && x <= 240 && y <= 245) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 4) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '4';
             pNumCount++;
           }
-        } else if (x >= 0 && y >= 237 && x <= 75 && y <= 277) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 5) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '5';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 237 && x <= 120 && y <= 277) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 6) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '6';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 237 && x <= 186 && y <= 277) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 7) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '7';
             pNumCount++;
           }
-        } else if (x >= 185 && y >= 237 && x <= 240 && y <= 277) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 8) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '8';
             pNumCount++;
           }
-        } else if (x >= 0 && y >= 269 && x <= 75 && y <= 329) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 9) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '9';
             pNumCount++;
           }
-        } else if (x >= 75 && y >= 269 && x <= 120 && y <= 329) {
-          if (pNumCount < 9) {
+        } else if (getKPPress() == 0) {
+          if (pNumCount < 13) {
             givenPNumber[pNumCount] = '0';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 269 && x <= 240 && y <= 329) {
+        } else if (getKPPress() == -1) {
           if (pNumCount > 0) {
             pNumCount--;
             givenPNumber[pNumCount] = ' ';
+          }
+        } else if (getKPPress() == -2) {
+          if (pNumCount == 0) {
+            givenPNumber[pNumCount] = '+';
+            pNumCount++;
           }
         } else if (x >= 120 && y >= 120 && x <= 220 && y <= 150) {
           drawText("CALL", 140, 125, 3, black, green);
@@ -527,7 +532,7 @@ void phoneApp() {
           pNumCount = 0;
           tft.setTextSize(3);
           tft.setTextColor(black, white);
-          tft.setCursor(25, 75);
+          tft.setCursor(15, 75);
           tft.print(givenPNumber);
           drawText("CALL", 140, 125, 3, white, green);
         } else if (x >= 20 && y >= 120 && x <= 115 && y <= 150) {
@@ -660,72 +665,77 @@ void smsApp() {
           drawText("SEND", 100, 60, 2, white, darkgreen);
         }
         if (selectedField == NUM_FIELD) {
-          if (x >= 0 && y >= 185 && x <= 75 && y <= 245) {
-            if (pNumCount < 9) {
+          if (getKPPress() == 1) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '1';
               pNumCount++;
             }
-          } else if (x >= 75 && y >= 185 && x <= 120 && y <= 245) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 2) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '2';
               pNumCount++;
             }
-          } else if (x >= 120 && y >= 185 && x <= 185 && y <= 245) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 3) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '3';
               pNumCount++;
             }
-          } else if (x >= 185 && y >= 185 && x <= 240 && y <= 245) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 4) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '4';
               pNumCount++;
             }
-          } else if (x >= 0 && y >= 237 && x <= 75 && y <= 277) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 5) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '5';
               pNumCount++;
             }
-          } else if (x >= 75 && y >= 237 && x <= 120 && y <= 277) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 6) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '6';
               pNumCount++;
             }
-          } else if (x >= 120 && y >= 237 && x <= 186 && y <= 277) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 7) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '7';
               pNumCount++;
             }
-          } else if (x >= 185 && y >= 237 && x <= 240 && y <= 277) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 8) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '8';
               pNumCount++;
             }
-          } else if (x >= 0 && y >= 269 && x <= 75 && y <= 329) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 9) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '9';
               pNumCount++;
             }
-          } else if (x >= 75 && y >= 269 && x <= 120 && y <= 329) {
-            if (pNumCount < 9) {
+          } else if (getKPPress() == 0) {
+            if (pNumCount < 13) {
               givenPNumber[pNumCount] = '0';
               pNumCount++;
             }
-          } else if (x >= 120 && y >= 269 && x <= 240 && y <= 329) {
+          } else if (getKPPress() == -1) {
             if (pNumCount > 0) {
               pNumCount--;
               givenPNumber[pNumCount] = ' ';
+            }
+          } else if (getKPPress() == -2) {
+            if (pNumCount == 0) {
+              givenPNumber[pNumCount] = '+';
+              pNumCount++;
             }
           }
           if (y >= 190) {
             tft.setTextSize(3);
             tft.setTextColor(black, white);
-            tft.setCursor(25, 105);
+            tft.setCursor(15, 105);
             tft.print(givenPNumber);
           }
         } else {
           if (x >= 20 && y >= 230 && x <= 80 && y <= 320) {
             if (charOnScreenNum == 0) {
-              charOnScreenNum = 54;
+              charOnScreenNum = 55;
             } else {
               charOnScreenNum = (charOnScreenNum - 1);
             }
@@ -736,7 +746,7 @@ void smsApp() {
             tft.print(charOnScreen);
           } else if (x >= 80 && y >= 230 && x <= 160 && y <= 320) {
             charOnScreenNum = (charOnScreenNum + 1);
-            if (charOnScreenNum >= 55) {
+            if (charOnScreenNum >= 56) {
               charOnScreenNum = 0;
             }
             charOnScreen = chars[charOnScreenNum];
@@ -786,6 +796,9 @@ void smsApp() {
   appExit = false;
   for (int i = 0; i < 9; i++) {
     givenPNumber[i] = ' ';
+  }
+  for (int i = 0; i < 15; i++) {
+    message[i] = ' ';
   }
   pNumCount = 0;
   exitApp();
@@ -893,7 +906,7 @@ void exitApp() {
 }
 
 void lock() {
-  for (int i = 20; i >= 0; i--) {
+  for (int i = bl; i >= 0; i--) {
     backlight(i);
     delay(40);
   }
@@ -925,10 +938,11 @@ void lock() {
     /*tft.print(getTouchPart());
       tft.setCursor(50, 50);*/
   }
-  for (int i = 0; i <= 20; i++) {
+  for (int i = 0; i <= bl; i++) {
     backlight(i);
     delay(10);
   }
+  while (ts.touched()) {}
 }
 
 int getTouchPart() {
@@ -945,6 +959,41 @@ int getTouchPart() {
     return 3;
   } else if (x >= 120 && y >= 160) {
     return 4;
+  }
+}
+
+int getKPPress() {
+  if (ts.touched()) {
+    TS_Point tPoint = ts.getPoint();
+    int x = map(tPoint.x, 0, 240, 240, 0);
+    int y = map(tPoint.y, 0, 320, 320, 0);
+    if (y >= 190) {
+      if (x >= 0 && y >= 185 && x <= 75 && y <= 245) {
+        return 1;
+      } else if (x >= 75 && y >= 185 && x <= 120 && y <= 245) {
+        return 2;
+      } else if (x >= 120 && y >= 185 && x <= 185 && y <= 245) {
+        return 3;
+      } else if (x >= 185 && y >= 185 && x <= 240 && y <= 245) {
+        return 4;
+      } else if (x >= 0 && y >= 237 && x <= 75 && y <= 277) {
+        return 5;
+      } else if (x >= 75 && y >= 237 && x <= 120 && y <= 277) {
+        return 6;
+      } else if (x >= 120 && y >= 237 && x <= 186 && y <= 277) {
+        return 7;
+      } else if (x >= 185 && y >= 237 && x <= 240 && y <= 277) {
+        return 8;
+      } else if (x >= 0 && y >= 269 && x <= 75 && y <= 329) {
+        return 9;
+      } else if (x >= 75 && y >= 269 && x <= 120 && y <= 329) {
+        return 0;
+      } else if (x >= 120 && y >= 269 && x <= 186 && y <= 329) {
+        return -1;
+      } else if (x >= 185 && y >= 269 && x <= 240 && y <= 329) {
+        return -2;
+      }
+    }
   }
 }
 
