@@ -121,9 +121,16 @@ void setup() {
   fona.setPWM(2000);
   fona.setAllVolumes(volume);
   ts.begin(40);
-  fona.enableRTC(1);
   tft.print(F("."));
   fona.setPWM(0);
+  if (fona.getNetworkStatus() == 2) {
+    while (fona.getNetworkStatus() == 2) {}
+  } else if (fona.getNetworkStatus() == 1) {
+    drawText("NETWORK FOUND", 45, 250, 2, white, navy);
+  } else {
+    drawText("NO NETWORK", 63, 250, 2, white, navy);
+  }
+  delay(1000);
   for (int i = 320; i > 0; i--) {
     tft.drawFastHLine(0, i, 240, cyan);
   }
