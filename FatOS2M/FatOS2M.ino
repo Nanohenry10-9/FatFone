@@ -1,6 +1,5 @@
 // Arduino MEGA ADK version!
 
-
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
 #include <Adafruit_FT6206.h>
@@ -14,7 +13,7 @@ Adafruit_FT6206 ts = Adafruit_FT6206();
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 #define FONA_RX 2
-#define FONA_TX 11
+#define FONA_TX 12
 #define FONA_RST 4
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
@@ -41,6 +40,8 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define APP_PONG      4
 #define APP_RADIO     5
 #define APP_CLOCK     6
+#define APP_PAINT     7
+#define APP_REMOTE    8
 
 #define KEYPAD_CHARS  -2
 #define KEYPAD_NUMS   -1
@@ -56,21 +57,25 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define NUM_FIELD 0
 #define MSG_FIELD 1
 
-bool debug = 0;
+bool debug = 1;
 
 bool locked = 0;
 
+bool noFONA = false;
+
 #define appSize 60
-byte appLocX[] = {10, 90, 170, 10, 90, 170};
-byte appLocY[] = {70, 70, 70, 160, 160, 160};
-uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey};
-char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock"};
-byte appNamePlusX[] = {15, 7, 7, 17, 15, 15};
-byte appAmount = 6;
+byte appLocX[] = {10, 90, 170, 10, 90, 170, 10, 90};
+byte appLocY[] = {60, 60, 60, 140, 140, 140, 220, 220};
+uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, black};
+char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "SonyMote"};
+byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 7};
+byte appAmount = 8;
 #define appAnimFrames 71
 
+char errorFONA[] = {"!FONA"};
+
 byte bl = 12;
-byte audio = FONA_HEADSETAUDIO;
+byte audio = FONA_EXTAUDIO;
 byte volume = 50;
 
 char RTCtime[23];
@@ -87,15 +92,18 @@ int mesLocY[] = {100, 160, 220, 280};
 char chars[] = "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ.!? ";
 byte charOnScreenNum = 0;
 
-//char numbers[] = "0123456789";
 uint16_t channelNums[5] = {0, 0, 0, 0};
 uint16_t channelNum = 0000;
+
+int clockToX[] = {120};
+int clockToY[] = {80};
 
 int x;
 int y;
 TS_Point tPoint;
 
 void setup() {
+  ts.begin(40);
   Serial.begin(115200);
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, LOW);
@@ -121,32 +129,37 @@ void setup() {
     backlight(i);
     delay(20);
   }
-  Serial.println(F("Starting FONA 1/2..."));
-  fonaSerial->begin(4800);
-  tft.print('.');
-  Serial.println(F("Starting FONA 2/2..."));
-  if (!fona.begin(*fonaSerial)) {
-    Serial.println(F("Couldn't start FONA"));
-    drawText("FONA ERROR", 63, 250, 2, red, navy);
-    while (true) {}
-  }
-  Serial.println(F("FONA started"));
-  tft.print('.');
-  fona.setAudio(audio);
-  tft.print('.');
-  fona.setPWM(2000);
-  fona.setAllVolumes(volume);
-  ts.begin(40);
-  tft.print(F("."));
-  fona.setPWM(0);
-  if (fona.getNetworkStatus() == 2) {
-    while (fona.getNetworkStatus() == 2) {}
-  } else if (fona.getNetworkStatus() == 1) {
-    drawText("NETWORK FOUND", 45, 250, 2, white, navy);
+  if (ts.touched()) {
+    noFONA = true;
+    drawText("FONA BYPASSED", 43, 250, 2, green, navy);
   } else {
-    drawText("NO NETWORK", 63, 250, 2, red, navy);
+    Serial.println(F("Starting FONA 1/2..."));
+    fonaSerial->begin(4800);
+    tft.print('.');
+    Serial.println(F("Starting FONA 2/2..."));
+    if (!fona.begin(*fonaSerial)) {
+      Serial.println(F("Couldn't start FONA"));
+      drawText("FONA ERROR", 63, 250, 2, red, navy);
+      while (true) {}
+    }
+    Serial.println(F("FONA started"));
+    tft.print('.');
+    fona.setAudio(audio);
+    tft.print('.');
+    fona.setPWM(2000);
+    fona.setAllVolumes(volume);
+    tft.print(F("."));
+    fona.setPWM(0);
+    if (fona.getNetworkStatus() == 2) {
+      while (fona.getNetworkStatus() == 2) {}
+    } else if (fona.getNetworkStatus() == 1) {
+      drawText("NETWORK FOUND", 45, 250, 2, white, navy);
+    } else {
+      drawText("NO NETWORK", 63, 250, 2, red, navy);
+    }
+    delay(1000);
   }
-  delay(1000);
+
   exitApp(); // Isn't actually exiting app, here just for the animation
 }
 
@@ -166,7 +179,7 @@ void draw(int a) {
     case MENU:
       for (byte a = 0; a < appAmount; a++) {
         tft.fillRect(appLocX[a], appLocY[a], appSize, appSize, appColor[a]);
-        drawText(appName[a], (appLocX[a] + appNamePlusX[a]), (appLocY[a] + 63), 1, black, cyan);
+        drawText(appName[a], (appLocX[a] + appNamePlusX[a]), (appLocY[a] + 26), 1, white, appColor[a]);
       }
       tft.fillRect(7, 5, 40, 40, red);
       tft.drawRect(7, 5, 40, 40, black);
@@ -175,9 +188,9 @@ void draw(int a) {
       updateTimer = millis();
       break;
     case APP_PHONE:
-      drawTime(red);
+      drawTime(appColor[0]);
       drawBattery();
-      drawText("BACK", 5, 18, 2, white, red);
+      drawText("BACK", 5, 18, 2, white, appColor[0]);
       tft.fillRect(20, 70, 90, 50, green);
       drawText("PICK UP", 25, 87, 2, white, green);
       tft.fillRect(130, 70, 90, 50, red);
@@ -186,9 +199,9 @@ void draw(int a) {
       drawText("KEYPAD", 85, 142, 2, black, lightgrey);
       break;
     case APP_SMS:
-      drawTime(green);
+      drawTime(appColor[1]);
       drawBattery();
-      drawText("BACK", 5, 18, 2, white, green);
+      drawText("BACK", 5, 18, 2, white, appColor[1]);
       tft.fillRect(0, 50, 60, 40, darkgrey);
       tft.fillRect(180, 50, 60, 40, darkgrey);
       drawText("SEND", 5, 60, 2, white, darkgrey);
@@ -200,8 +213,8 @@ void draw(int a) {
       draw(KEYPAD_NUMS);
       break;
     case APP_SETTINGS:
-      drawText("BACK", 5, 18, 2, white, lightgrey);
-      drawTime(lightgrey);
+      drawText("BACK", 5, 18, 2, white, appColor[3]);
+      drawTime(appColor[3]);
       drawBattery();
       drawText("BACKLIGHT", 65, 70, 2, black, white);
       tft.drawFastHLine(20, 110, 200, black);
@@ -241,9 +254,9 @@ void draw(int a) {
       tft.print(F("OK"));
       break;
     case APP_RADIO:
-      drawTime(navy);
+      drawTime(appColor[4]);
       drawBattery();
-      drawText("BACK", 5, 18, 2, white, navy);
+      drawText("BACK", 5, 18, 2, white, appColor[4]);
       tft.fillRect(30, 190, 180, 40, green);
       tft.fillRect(30, 240, 180, 40, darkgrey);
       drawText("TUNE", 85, 200, 3, white, green);
@@ -275,9 +288,16 @@ void draw(int a) {
       tft.print(channelNums[3]);
       break;
     case APP_CLOCK:
-      drawTime(darkgrey);
+      drawTime(appColor[5]);
       drawBattery();
-      drawText("BACK", 5, 18, 2, white, darkgrey);
+      drawText("BACK", 5, 18, 2, white, appColor[5]);
+      tft.drawCircle(120, 180, 101, black);
+      tft.drawCircle(120, 180, 102, black);
+      break;
+    case APP_PAINT:
+      drawTime(appColor[6]);
+      drawBattery();
+      drawText("BACK", 5, 18, 2, white, appColor[6]);
       break;
     case KEYPAD_NUMS:
       tft.fillRect(0, 189, 240, 160, white);
@@ -445,41 +465,45 @@ void touchHandler() {
     tft.fillRect(8, 6, 38, 38, red);
     lock();
   } else if (x >= appLocX[0] && y >= appLocY[0] && x <= (appLocX[0] + appSize) && y <= (appLocY[0] + appSize)) {
-    drawText(appName[0], (appLocX[0] + appNamePlusX[0]), (appLocY[0] + 63), 1, white, cyan);
+    drawText(appName[0], (appLocX[0] + appNamePlusX[0]), (appLocY[0] + 26), 1, white, appColor[0]);
     while (ts.touched()) {}
-    drawText(appName[0], (appLocX[0] + appNamePlusX[0]), (appLocY[0] + 63), 1, black, cyan);
+    drawText(appName[0], (appLocX[0] + appNamePlusX[0]), (appLocY[0] + 26), 1, black, appColor[0]);
     appOnScreen = APP_PHONE;
     openApp(APP_PHONE);
   } else if (x >= appLocX[1] && y >= appLocY[1] && x <= (appLocX[1] + appSize) && y <= (appLocY[1] + appSize)) {
-    drawText(appName[1], (appLocX[1] + appNamePlusX[1]), (appLocY[1] + 63), 1, white, cyan);
+    drawText(appName[1], (appLocX[1] + appNamePlusX[1]), (appLocY[1] + 26), 1, white, appColor[1]);
     while (ts.touched()) {}
-    drawText(appName[1], (appLocX[1] + appNamePlusX[1]), (appLocY[1] + 63), 1, black, cyan);
+    drawText(appName[1], (appLocX[1] + appNamePlusX[1]), (appLocY[1] + 26), 1, black, appColor[1]);
     appOnScreen = APP_SMS;
     openApp(APP_SMS);
   } else if (x >= appLocX[2] && y >= appLocY[2] && x <= (appLocX[2] + appSize) && y <= (appLocY[2] + appSize)) {
-    drawText(appName[2], (appLocX[2] + appNamePlusX[2]), (appLocY[2] + 63), 1, white, cyan);
+    drawText(appName[2], (appLocX[2] + appNamePlusX[2]), (appLocY[2] + 26), 1, white, appColor[2]);
     while (ts.touched()) {}
-    drawText(appName[2], (appLocX[2] + appNamePlusX[2]), (appLocY[2] + 63), 1, black, cyan);
+    drawText(appName[2], (appLocX[2] + appNamePlusX[2]), (appLocY[2] + 26), 1, black, appColor[2]);
     appOnScreen = APP_SETTINGS;
     openApp(APP_SETTINGS);
   } else if (x >= appLocX[3] && y >= appLocY[3] && x <= (appLocX[3] + appSize) && y <= (appLocY[3] + appSize)) {
-    drawText(appName[3], (appLocX[3] + appNamePlusX[3]), (appLocY[3] + 63), 1, white, cyan);
+    drawText(appName[3], (appLocX[3] + appNamePlusX[3]), (appLocY[3] + 26), 1, white, appColor[3]);
     while (ts.touched()) {}
-    drawText(appName[3], (appLocX[3] + appNamePlusX[3]), (appLocY[3] + 63), 1, black, cyan);
+    drawText(appName[3], (appLocX[3] + appNamePlusX[3]), (appLocY[3] + 26), 1, black, appColor[3]);
     appOnScreen = APP_PONG;
     openApp(APP_PONG);
   } else if (x >= appLocX[4] && y >= appLocY[4] && x <= (appLocX[4] + appSize) && y <= (appLocY[4] + appSize)) {
-    drawText(appName[4], (appLocX[4] + appNamePlusX[4]), (appLocY[4] + 63), 1, white, cyan);
+    drawText(appName[4], (appLocX[4] + appNamePlusX[4]), (appLocY[4] + 26), 1, white, appColor[4]);
     while (ts.touched()) {}
-    drawText(appName[4], (appLocX[4] + appNamePlusX[4]), (appLocY[4] + 63), 1, black, cyan);
+    drawText(appName[4], (appLocX[4] + appNamePlusX[4]), (appLocY[4] + 26), 1, black, appColor[4]);
     appOnScreen = APP_RADIO;
     openApp(APP_RADIO);
   } else if (x >= appLocX[5] && y >= appLocY[5] && x <= (appLocX[5] + appSize) && y <= (appLocY[5] + appSize)) {
-    drawText(appName[5], (appLocX[5] + appNamePlusX[5]), (appLocY[5] + 63), 1, white, cyan);
+    drawText(appName[5], (appLocX[5] + appNamePlusX[5]), (appLocY[5] + 26), 1, white, appColor[5]);
     while (ts.touched()) {}
-    drawText(appName[5], (appLocX[5] + appNamePlusX[5]), (appLocY[5] + 63), 1, black, cyan);
+    drawText(appName[5], (appLocX[5] + appNamePlusX[5]), (appLocY[5] + 26), 1, black, appColor[5]);
     appOnScreen = APP_CLOCK;
     openApp(APP_CLOCK);
+  } else {
+    tft.invertDisplay(true);
+    while (ts.touched()) {}
+    tft.invertDisplay(false);
   }
 }
 
@@ -506,12 +530,22 @@ void drawBattery() {
 
 byte getBattery() {
   uint16_t bat;
-  fona.getBattPercent(&bat);
+  if (noFONA) {
+    bat = 0;
+  } else {
+    fona.getBattPercent(&bat);
+  }
   return bat;
 }
 
 void drawTime(uint16_t bgcolor) {
-  fona.getTime(RTCtime, 23);
+  if (noFONA) {
+    for (int i = 10; i < 15; i++) {
+      RTCtime[i] = errorFONA[i - 10];
+    }
+  } else {
+    fona.getTime(RTCtime, 23);
+  }
   if (bgcolor != blue && bgcolor != cyan) {
     tft.setCursor((timeX + 5), timeY);
   } else {
@@ -548,12 +582,16 @@ void phoneApp() {
         if (x >= 20 && y >= 70 && x <= 110 && y <= 120) {
           drawText("PICK UP", 25, 87, 2, black, green);
           while (ts.touched()) {}
-          fona.pickUp();
+          if (!noFONA) {
+            fona.pickUp();
+          }
           drawText("PICK UP", 25, 87, 2, white, green);
         } else if (x >= 130 && y >= 70 && x <= 220 && y <= 120) {
           drawText("END", 157, 87, 2, black, red);
           while (ts.touched()) {}
-          fona.hangUp();
+          if (!noFONA) {
+            fona.hangUp();
+          }
           drawText("END", 157, 87, 2, white, red);
         } else if (x >= 20 && y >= 130 && x <= 220 && y <= 170) {
           drawText("KEYPAD", 85, 142, 2, white, lightgrey);
@@ -637,7 +675,9 @@ void phoneApp() {
         } else if (x >= 120 && y >= 120 && x <= 220 && y <= 150) {
           drawText("CALL", 140, 125, 3, black, green);
           while (ts.touched()) {}
-          fona.callPhone(givenPNumber);
+          if (!noFONA) {
+            fona.callPhone(givenPNumber);
+          }
           for (int i = 0; i < 9; i++) {
             givenPNumber[i] = ' ';
           }
@@ -708,7 +748,7 @@ void smsApp() {
         tft.fillRect(60, 50, 120, 40, darkgreen);
         drawText("SEND", 100, 60, 2, white, darkgreen);
         draw(KEYPAD_NUMS);
-      } else if (x >= 180 && y >= 50 && x <= 240 && y <= 90) {
+      } else if (x >= 180 && y >= 50 && x <= 240 && y <= 90 && !noFONA) {
         drawText("READ", 188, 60, 2, black, darkgrey);
         while (ts.touched()) {}
         drawText("READ", 188, 60, 2, white, darkgrey);
@@ -748,7 +788,9 @@ void smsApp() {
         } else if (x >= 60 && y >= 50 && x <= 180 && y <= 90) {
           drawText("SEND", 100, 60, 2, black, darkgreen);
           while (ts.touched()) {}
-          fona.sendSMS(givenPNumber, message);
+          if (!noFONA) {
+            fona.sendSMS(givenPNumber, message);
+          }
           for (int i = 0; i < 9; i++) {
             givenPNumber[i] = ' ';
           }
@@ -876,7 +918,7 @@ void smsApp() {
             tft.print(message);
           }
         }
-      } else if (page == SMS_READ) {
+      } else if (page == SMS_READ && !noFONA) {
         if (x >= 60 && y >= 50 && x <= 180 && y <= 90) {
           drawText("REFRESH", 78, 60, 2, black, darkgreen);
           while (ts.touched()) {}
@@ -999,7 +1041,9 @@ void setApp() {
             }
           }
         }
-        fona.setAllVolumes(volume);
+        if (!noFONA) {
+          fona.setAllVolumes(volume);
+        }
       } else if (x >= 20 && y >= 90 && x <= 220 && y <= 130) {
         while (ts.touched()) {
           tPoint = ts.getPoint();
@@ -1247,7 +1291,6 @@ int getKPPress() {
 
 void radioApp() {
   draw(APP_RADIO);
-  //int selectedNums[5] = {0, 0, 0, 0};
   while (!appExit) {
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1318,14 +1361,18 @@ void radioApp() {
         drawText("TUNE", 85, 200, 3, black, green);
         while (ts.touched()) {}
         drawText("TUNE", 85, 200, 3, white, green);
-        fona.FMradio(true, audio);
-        channelNum = channelNum + ((channelNums[0] * 1000) + (channelNums[1] * 100) + (channelNums[2] * 10) + (channelNums[3]));
-        fona.tuneFMradio(channelNum);
+        if (!noFONA) {
+          fona.FMradio(true, audio);
+          channelNum = ((channelNums[0] * 1000) + (channelNums[1] * 100) + (channelNums[2] * 10) + (channelNums[3]));
+          fona.tuneFMradio(channelNum);
+        }
       } else if (x >= 30 && y >= 240 && x <= 210 && y <= 280) {
         drawText("CLOSE", 75, 250, 3, black, darkgrey);
         while (ts.touched()) {}
         drawText("CLOSE", 75, 250, 3, white, darkgrey);
-        fona.FMradio(false);
+        if (!noFONA) {
+          fona.FMradio(false);
+        }
       }
       while (ts.touched()) {}
     }
@@ -1336,6 +1383,29 @@ void radioApp() {
 
 void clockApp() {
   draw(APP_CLOCK);
+  int xMinute = 0;
+  int yMinute = 0;
+  int xHour = 0;
+  int yHour = 0;
+  float seconds = 0;
+  int timeBuff[3] = {' '};
+  if (noFONA) {
+    for (int i = 10; i < 15; i++) {
+      RTCtime[i] = errorFONA[i - 10];
+    }
+  } else {
+    fona.getTime(RTCtime, 23);
+  }
+  float minutes = 0;
+  minutes = ((RTCtime[13] * 10) + RTCtime[14]);
+  float hours = 0;
+  hours = ((RTCtime[10] * 10) + RTCtime[11]);
+  float mAngle = 0;
+  float hAngle = 0;
+  int timer = 0;
+  const int cenX = 120;
+  const int cenY = 180;
+  //float hourAdd = 0;
   while (!appExit) {
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1345,11 +1415,49 @@ void clockApp() {
         appExit = true;
       }
     }
+    if (millis() - timer >= 10000) {
+      timer = millis();
+      while (1) {
+        mAngle = (PI * 2) / 60 * minutes;
+        xMinute = cenX - (100 * sin(mAngle));
+        yMinute = cenY + (100 * cos(mAngle));
+        yMinute = map(yMinute, 80, 280, 280, 80);
+        xMinute = map(xMinute, 20, 220, 220, 20);
+        hAngle = (PI * 2) / 12 * hours;
+        xHour = cenX - (70 * sin(hAngle));
+        yHour = cenY + (70 * cos(hAngle));
+        yHour = map(yHour, 80, 280, 280, 80);
+        xHour = map(xHour, 20, 220, 220, 20);
+        //xMinute -= 120;
+        //xHour -= 120;
+        tft.drawLine(cenX, cenY, xHour, yHour, red);
+        tft.drawLine(cenX, cenY, xMinute, yMinute, blue);
+        tft.fillCircle(cenX, cenY, 3, black);
+        delay(1);
+        tft.drawLine(cenX, cenY, xHour, yHour, white);
+        tft.drawLine(cenX, cenY, xMinute, yMinute, white);
+        seconds++;
+        if (seconds > 59) {
+          seconds = 0;
+          minutes++;
+        }
+        if (minutes > 59) {
+          minutes = 0;
+          hours++;
+        }
+        if (hours > 23) {
+          hours = 0;
+        }
+      }
+    }
   }
   appExit = false;
   exitApp();
 }
 
+void paintApp() {
+  draw(APP_PAINT);
+}
 
 
 
