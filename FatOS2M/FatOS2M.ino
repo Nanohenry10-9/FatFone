@@ -4,6 +4,7 @@
 #include <Adafruit_FONA.h>
 #include <Adafruit_FT6206.h>
 #include <SoftwareSerial.h>
+#include <avr/wdt.h>
 
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
@@ -63,11 +64,13 @@ bool locked = 0;
 
 bool noFONA = false;
 
+bool hasStarted = false;
+
 #define appSize 60
 byte appLocX[] = {10, 90, 170, 10, 90, 170, 10, 90};
 byte appLocY[] = {60, 60, 60, 140, 140, 140, 220, 220};
 uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, black};
-char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "SonyMote"};
+char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "TVRemote"};
 byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 7};
 byte appAmount = 8;
 #define appAnimFrames 71
@@ -102,7 +105,13 @@ int x;
 int y;
 TS_Point tPoint;
 
+int blToA;
+
 void setup() {
+  cli();
+  WDTCSR |= 0b00011000; // Set watchdog timer
+  WDTCSR = 0b1000000 | 0b100001;
+  sei();
   ts.begin(40);
   Serial.begin(115200);
   pinMode(TFT_BL, OUTPUT);
@@ -125,10 +134,12 @@ void setup() {
   tft.setTextColor(white);
   tft.print(F("Starting"));
   tft.setCursor(85, 200);
-  for (byte i = 0; i <= bl; i++) {
-    backlight(i);
-    delay(20);
+  blToA = map(bl, 0, 20, 0, 255);
+  for (int i = 0; i <= blToA; i++) {
+    analogWrite(TFT_BL, i);
+    delay(10);
   }
+  wdt_reset();
   if (ts.touched()) {
     noFONA = true;
     drawText("FONA BYPASSED", 43, 250, 2, green, navy);
@@ -159,6 +170,13 @@ void setup() {
     }
     delay(1000);
   }
+
+  WDTCSR |= 0b00011000; // Set watchdog timer
+  WDTCSR = 0b10000000 | 0b000111;
+
+  sei();
+
+  hasStarted = true;
 
   exitApp(); // Isn't actually exiting app, here just for the animation
 }
@@ -298,6 +316,19 @@ void draw(int a) {
       drawTime(appColor[6]);
       drawBattery();
       drawText("BACK", 5, 18, 2, white, appColor[6]);
+      tft.fillRect(0, 280, 240, 40, darkgrey);
+      tft.fillRect(5, 285, 38, 30, red);
+      tft.fillRect(43, 285, 38, 30, green);
+      tft.fillRect(81, 285, 38, 30, blue);
+      tft.fillRect(119, 285, 38, 30, black);
+      tft.fillRect(157, 285, 38, 30, white);
+      tft.fillRect(195, 285, 38, 30, white);
+      tft.drawFastVLine(195, 285, 30, black);
+      tft.drawRect(162, 290, 28, 20, black);
+      tft.drawFastVLine(170, 290, 20, black);
+      tft.fillRect(171, 291, 18, 18, blue);
+      tft.drawFastVLine(214, 290, 20, black);
+      tft.drawFastHLine(204, 300, 20, black);
       break;
     case KEYPAD_NUMS:
       tft.fillRect(0, 189, 240, 160, white);
@@ -440,6 +471,22 @@ void openApp(byte a) {
       tft.fillRect(0, 50, 240, 270, white);
       clockApp();
       break;
+    case APP_PAINT:
+      for (int i = 0; i < appAnimFrames; i++) {
+        if (i % 6 == 0 || i == 70) {
+          y = map(i, 0, 70, appLocY[6], 0);
+          if (i != 0) {
+            tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
+          }
+          x = map(i, 0, 70, appLocX[6], 0);
+          sizeX = map(i, 0, 70, appSize, 240);
+          sizeY = map(i, 0, 70, appSize, 50);
+          tft.fillRect(x, y, sizeX, sizeY, appColor[6]);
+        }
+      }
+      tft.fillRect(0, 50, 240, 270, white);
+      paintApp();
+      break;
   }
 }
 
@@ -500,6 +547,12 @@ void touchHandler() {
     drawText(appName[5], (appLocX[5] + appNamePlusX[5]), (appLocY[5] + 26), 1, black, appColor[5]);
     appOnScreen = APP_CLOCK;
     openApp(APP_CLOCK);
+  } else if (x >= appLocX[6] && y >= appLocY[6] && x <= (appLocX[6] + appSize) && y <= (appLocY[6] + appSize)) {
+    drawText(appName[6], (appLocX[6] + appNamePlusX[6]), (appLocY[6] + 26), 1, white, appColor[6]);
+    while (ts.touched()) {}
+    drawText(appName[6], (appLocX[6] + appNamePlusX[6]), (appLocY[6] + 26), 1, black, appColor[6]);
+    appOnScreen = APP_PAINT;
+    openApp(APP_PAINT);
   } else {
     tft.invertDisplay(true);
     while (ts.touched()) {}
@@ -1297,7 +1350,10 @@ void radioApp() {
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
       if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, navy);
         appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, navy);
       }
       tft.setTextSize(4);
       tft.setTextColor(black, white);
@@ -1405,49 +1461,47 @@ void clockApp() {
   int timer = 0;
   const int cenX = 120;
   const int cenY = 180;
-  //float hourAdd = 0;
   while (!appExit) {
     if (ts.touched()) {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
       if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, darkgrey);
         appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, darkgrey);
       }
     }
-    if (millis() - timer >= 10000) {
+    if (millis() - timer >= 999) {
       timer = millis();
-      while (1) {
-        mAngle = (PI * 2) / 60 * minutes;
-        xMinute = cenX - (100 * sin(mAngle));
-        yMinute = cenY + (100 * cos(mAngle));
-        yMinute = map(yMinute, 80, 280, 280, 80);
-        xMinute = map(xMinute, 20, 220, 220, 20);
-        hAngle = (PI * 2) / 12 * hours;
-        xHour = cenX - (70 * sin(hAngle));
-        yHour = cenY + (70 * cos(hAngle));
-        yHour = map(yHour, 80, 280, 280, 80);
-        xHour = map(xHour, 20, 220, 220, 20);
-        //xMinute -= 120;
-        //xHour -= 120;
-        tft.drawLine(cenX, cenY, xHour, yHour, red);
-        tft.drawLine(cenX, cenY, xMinute, yMinute, blue);
-        tft.fillCircle(cenX, cenY, 3, black);
-        delay(1);
-        tft.drawLine(cenX, cenY, xHour, yHour, white);
-        tft.drawLine(cenX, cenY, xMinute, yMinute, white);
-        seconds++;
-        if (seconds > 59) {
-          seconds = 0;
-          minutes++;
-        }
-        if (minutes > 59) {
-          minutes = 0;
-          hours++;
-        }
-        if (hours > 23) {
-          hours = 0;
-        }
+      mAngle = (PI * 2) / 60 * minutes;
+      xMinute = cenX - (100 * sin(mAngle));
+      yMinute = cenY + (100 * cos(mAngle));
+      yMinute = map(yMinute, 80, 280, 280, 80);
+      xMinute = map(xMinute, 20, 220, 220, 20);
+      hAngle = (PI * 2) / 12 * hours;
+      xHour = cenX - (70 * sin(hAngle));
+      yHour = cenY + (70 * cos(hAngle));
+      yHour = map(yHour, 80, 280, 280, 80);
+      xHour = map(xHour, 20, 220, 220, 20);
+      tft.drawLine(cenX, cenY, xHour, yHour, red);
+      tft.drawLine(cenX, cenY, xMinute, yMinute, blue);
+      tft.fillCircle(cenX, cenY, 3, black);
+      delay(1);
+      tft.drawLine(cenX, cenY, xHour, yHour, white);
+      tft.drawLine(cenX, cenY, xMinute, yMinute, white);
+      seconds++;
+      if (seconds > 59) {
+        seconds = 0;
+        minutes++;
+      }
+      if (minutes > 59) {
+        minutes = 0;
+        hours++;
+      }
+      if (hours > 23) {
+        hours = 0;
       }
     }
   }
@@ -1457,6 +1511,60 @@ void clockApp() {
 
 void paintApp() {
   draw(APP_PAINT);
+  uint16_t selColor = red;
+  int brushWidth = 3;
+  while (!appExit) {
+    if (ts.touched()) {
+      tPoint = ts.getPoint();
+      x = map(tPoint.x, 0, 240, 240, 0);
+      y = map(tPoint.y, 0, 320, 320, 0);
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, maroon);
+        appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, maroon);
+      }
+      if (y >= 50 && y <= (280 - brushWidth)) {
+        tft.fillCircle(x, y, brushWidth, selColor);
+      }
+      if (y >= 280) {
+        if (x <= 43 && y <= 315) {
+          selColor = red;
+          brushWidth = 3;
+        } else if (x >= 43 && x <= 81 && y <= 315) {
+          selColor = green;
+          brushWidth = 3;
+        } else if (x >= 81 && x <= 119 && y <= 315) {
+          selColor = blue;
+          brushWidth = 3;
+        } else if (x >= 119 && x <= 157 && y <= 315) {
+          selColor = black;
+          brushWidth = 3;
+        } else if (x >= 157 && x <= 195 && y <= 315) {
+          selColor = white;
+          brushWidth = 5;
+        } else if (x >= 195 && y <= 315) {
+          tft.fillRect(0, 50, 240, 230, white);
+        }
+      }
+    }
+  }
+  appExit = false;
+  exitApp();
+}
+
+ISR(WDT_vect) {
+  wdt_reset();
+  if (hasStarted) {
+    tft.fillScreen(blue);
+    drawText("FatFone", 20, 20, 4, white, blue);
+    drawText("has", 20, 60, 4, white, blue);
+    drawText("crashed!", 20, 100, 4, white, blue);
+    drawText("(Please reset)", 20, 170, 2, white, blue);
+    drawText(":(", 20, 210, 12, white, blue);
+    cli();
+    while (1) {}
+  }
 }
 
 
