@@ -6,6 +6,7 @@
 #define FONA_RX 2
 #define FONA_TX 12
 #define FONA_RST 4
+#define FONA_RI 6
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
@@ -31,12 +32,13 @@ FILENAME menu_wp = "default_wp";
 #define APP_SET 4
 #define APP_PHONE 5
 #define APP_SMS 6
-#define APP_RADIO 7
+#define APP_MUSIC 7
+#define APP_PHOTOS 8
 
 int appAmount = 5;
 
 byte openApp = MENU;
-byte screen = 0;
+byte screen = MENU;
 
 char startText[] = {"STARTING"};
 int colouredLetter;
@@ -46,9 +48,31 @@ int i = 0;
 
 uint16_t FONAbatt = 0;
 
+int audio = FONA_EXTAUDIO;
+int vol = 75;
+
 long int updateTimer = millis();
 
 bool crash = false;
+
+long battTimer = millis();
+
+bool allowAlert = false;
+
+unsigned int files = 0;
+unsigned int dirs = 0;
+char songBuff[] = {" "};
+int songY[] = {70, 130, 190, 250, 310};
+bool pause = false;
+
+char dialNumber[14] = {" "};
+int curNum = 0;
+char numBuff[20] = {" "};
+float callTimer = 0;
+char cCallTimer[5] = {' '};
+String timerBuff;
+
+bool con = false;
 
 void setup() {
   wdt_reset();
@@ -62,13 +86,15 @@ void setup() {
     delay(10);
   }
 
-  //startFONA();
+  startFONA();
+  Serial.println(F("FONA started"));
 
   for (i = 100; i >= 0; i--) {
     tft.bright(i);
     delay(2);
   }
   draw(MENU);
+  TFTWAV("startSound", 0);
   for (i = 0; i <= 100; i++) {
     tft.bright(i);
     delay(2);
@@ -85,6 +111,8 @@ void setup() {
   //  2 seconds: 0b000111
   //  4 seconds: 0b100000
   //  8 seconds: 0b100001
+  Serial.println(F("WDT enabled"));
+  allowAlert = true;
 
 }
 
@@ -99,6 +127,7 @@ void draw(byte screen) {
     case LOCK:
       break;
     case MENU:
+      tft.drawRectangle(0, 0, 319, 479, WHITE, (FILLGEOM)true);
       drawTFTBMP(menu_wp, 0, 0);
       for (i = 0; i < appAmount; i++) {
         if (i == 0) {
@@ -123,7 +152,7 @@ void draw(byte screen) {
       break;
     case APP_PHONE:
       for (i = 319; i >= 0; i--) {
-        tft.drawLine(i, 0, i, 479, BLUE);
+        tft.drawLine(i, 0, i, 479, RED);
         delay(1);
       }
       drawText("Phone", 110, 210, FONT5, WHITE, false);
@@ -133,8 +162,25 @@ void draw(byte screen) {
       checkDrawBattery();
       break;
     case APP_SMS:
+      for (i = 319; i >= 0; i--) {
+        tft.drawLine(i, 0, i, 479, GREEN);
+        delay(1);
+      }
+      drawText("Messages", 60, 210, FONT5, WHITE, false);
+      delay(2000);
+      drawTFTBMP("musicRadio", 0, 0);
+      drawTopHeader(GREEN);
       break;
-    case APP_RADIO:
+    case APP_MUSIC:
+      for (i = 319; i >= 0; i--) {
+        tft.drawLine(i, 0, i, 479, BLUE);
+        delay(1);
+      }
+      drawText("Music", 110, 210, FONT5, WHITE, false);
+      delay(2000);
+      drawTFTBMP("music1", 0, 0);
+      drawTopHeader(BLUE);
+      listMusic();
       break;
     default:
       break;
@@ -142,19 +188,78 @@ void draw(byte screen) {
 }
 
 void call() {
-  drawTFTBMP("call1", 0, 0);
+  drawTFTBMP("phone3", 0, 0);
+  drawText(numBuff, 20, 30, FONT3, BLACK, false);
+  while (!con) {
+    if (tft.touchScreen(&tPoint) == VALID) {
+      if (tPoint.y >= 290) {
+        fona.hangUp();
+        con = true;
+      } else if (tPoint.y >= 125 && tPoint.y <= 290) {
+        drawTFTBMP("phone2", 0, 0);
+        fona.pickUp();
+        callTimer = millis();
+        drawText(numBuff, 20, 30, FONT3, BLACK, false);
+        while (!con) {
+          if (tft.touchScreen(&tPoint) == VALID) {
+            if (tPoint.y >= 290) {
+              con = true;
+            }
+          }
+          checkCrash();
+          wdt_reset();
+        }
+        con = false;
+        fona.hangUp();
+        drawText("Call ended, duration:", 20, 60, FONT3, BLACK, false);
+        timerBuff = callTimer / 1000;
+        timerBuff.toCharArray(cCallTimer, 5);
+        drawText(cCallTimer, 20, 90, FONT3, BLACK, false);
+        delay(1000);
+        con = true;
+      }
+    }
+    checkCrash();
+    wdt_reset();
+  }
+  con = false;
 }
 
 void call(char* number) {
-  drawTFTBMP("call2noMute", 0, 0);
+  drawTFTBMP("phone2", 0, 0);
+  callTimer = millis();
+  fona.callPhone(number);
+  drawText(number, 20, 30, FONT3, BLACK, false);
+  while (!con) {
+    if (tft.touchScreen(&tPoint) == VALID) {
+      if (tPoint.y >= 290) {
+        con = true;
+      }
+    }
+    checkCrash();
+    wdt_reset();
+  }
+  con = false;
+  fona.hangUp();
+  drawText("Call ended, duration:", 20, 60, FONT3, BLACK, false);
+  timerBuff = callTimer / 1000;
+  timerBuff.toCharArray(cCallTimer, 5);
+  drawText(cCallTimer, 20, 90, FONT3, BLACK, false);
+  delay(1000);
+  drawTFTBMP("phone1", 0, 0);
 }
 
 ISR(WDT_vect) {
   crash = 1;
+  fona.hangUp();
+  fona.setPWM(0);
 }
 
 void checkCrash() {
   if (crash) {
+    Serial.println(F("(!) WDT interrupt (!)"));
+    tft.stopWAVFile();
+    TFTWAV("error", 0);
     tft.drawRectangle(0, 0, 319, 479, BLUE, (FILLGEOM)true);
     tft.setTextColour(WHITE);
     tft.setTextSize(FONT4);
@@ -170,7 +275,6 @@ void checkCrash() {
     delay(10000);
     tft.string(20, 390, 319, 479, "C'mon, hit the", 0);
     tft.string(20, 430, 319, 479, "RESET button!", 0);
-    TFTWAV("error", 0);
     while (1);
   }
 }
@@ -181,6 +285,9 @@ void appRoutine(int color) {
     updateTimer = millis();
   }
   checkTouch();
+  if (fona.incomingCallNumber(numBuff)) {
+    call();
+  }
 }
 
 void checkTouch() {
@@ -189,6 +296,14 @@ void checkTouch() {
     case MENU:
       if (tPoint.x >= 16 && tPoint.y >= 70 && tPoint.x <= (16 + 60) && tPoint.y <= (70 + 60)) {
         phoneApp();
+      } else if (tPoint.x >= 92 && tPoint.y >= 70 && tPoint.x <= (92 + 60) && tPoint.y <= (70 + 60)) {
+        SMSapp();
+      } else if (tPoint.x >= 168 && tPoint.y >= 70 && tPoint.x <= (168 + 60) && tPoint.y <= (70 + 60)) {
+        musicApp();
+      } else if (tPoint.x >= 168 && tPoint.y >= 70 && tPoint.x <= (168 + 60) && tPoint.y <= (70 + 60)) {
+        setApp();
+      } else if (tPoint.x >= 168 && tPoint.y >= 70 && tPoint.x <= (168 + 60) && tPoint.y <= (70 + 60)) {
+        imagesApp();
       }
       break;
   }
@@ -202,6 +317,199 @@ void phoneApp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(RED);
+    wdt_reset();
+    if (tft.touchScreen(&tPoint) == VALID) {
+      if (tPoint.x >= 0 && tPoint.y >= 0 && tPoint.x <= 160 && tPoint.y <= 180) {
+        tft.drawRectangle(6, 195, 313, 265, WHITE, (FILLGEOM)true);
+        call(dialNumber);
+        for (i = 0; i < 13; i++) {
+          dialNumber[i] = ' ';
+        }
+        curNum = 0;
+      } else if (tPoint.x >= 160 && tPoint.y >= 0 && tPoint.x <= 320 && tPoint.y <= 180) {
+        // Contacts
+      } else if (tPoint.x >= 0 && tPoint.y >= 273 && tPoint.x <= 76 && tPoint.y <= 349) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '1';
+          curNum++;
+          fona.playDTMF('1');
+        }
+      } else if (tPoint.x >= 76 && tPoint.y >= 273 && tPoint.x <= 155 && tPoint.y <= 349) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '2';
+          curNum++;
+          fona.playDTMF('2');
+        }
+      } else if (tPoint.x >= 155 && tPoint.y >= 273 && tPoint.x <= 230 && tPoint.y <= 349) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '3';
+          curNum++;
+          fona.playDTMF('3');
+        }
+      } else if (tPoint.x >= 230 && tPoint.y >= 273 && tPoint.x <= 320 && tPoint.y <= 349) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '4';
+          curNum++;
+          fona.playDTMF('4');
+        }
+      } else if (tPoint.x >= 0 && tPoint.y >= 349 && tPoint.x <= 76 && tPoint.y <= 410) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '5';
+          curNum++;
+          fona.playDTMF('5');
+        }
+      } else if (tPoint.x >= 76 && tPoint.y >= 349 && tPoint.x <= 155 && tPoint.y <= 410) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '6';
+          curNum++;
+          fona.playDTMF('6');
+        }
+      } else if (tPoint.x >= 155 && tPoint.y >= 349 && tPoint.x <= 230 && tPoint.y <= 410) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '7';
+          curNum++;
+          fona.playDTMF('7');
+        }
+      } else if (tPoint.x >= 230 && tPoint.y >= 349 && tPoint.x <= 320 && tPoint.y <= 410) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '8';
+          curNum++;
+          fona.playDTMF('8');
+        }
+      } else if (tPoint.x >= 0 && tPoint.y >= 410 && tPoint.x <= 76 && tPoint.y <= 480) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '9';
+          curNum++;
+          fona.playDTMF('9');
+        }
+      } else if (tPoint.x >= 76 && tPoint.y >= 410 && tPoint.x <= 155 && tPoint.y <= 480) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '0';
+          curNum++;
+          fona.playDTMF('0');
+        }
+      } else if (tPoint.x >= 155 && tPoint.y >= 410 && tPoint.x <= 230 && tPoint.y <= 480) {
+        if (curNum < 13) {
+          dialNumber[curNum] = '+';
+          curNum++;
+          fona.playDTMF('2');
+        }
+      } else if (tPoint.x >= 230 && tPoint.y >= 410 && tPoint.x <= 320 && tPoint.y <= 480) {
+        if (curNum > 0) {
+          curNum--;
+          dialNumber[curNum] = ' ';
+          fona.playDTMF('6');
+        }
+      }
+      if (tPoint.y > 273) {
+        tft.drawRectangle(6, 195, 313, 265, WHITE, (FILLGEOM)true);
+        drawText(dialNumber, 6, 210, FONT5, BLACK, false);
+      }
+      delay(300);
+    }
+  }
+  exitApp();
+}
+
+void SMSapp() {
+  openApp = APP_SMS;
+  screen = APP_SMS;
+  draw(APP_SMS);
+  while (tPoint.y > 20) {
+    tft.touchScreen(&tPoint);
+    checkCrash();
+    appRoutine(GREEN);
+    wdt_reset();
+  }
+  exitApp();
+}
+
+void musicApp() {
+  openApp = APP_MUSIC;
+  screen = APP_MUSIC;
+  draw(APP_MUSIC);
+  while (tPoint.y > 20) {
+    tft.touchScreen(&tPoint);
+    checkCrash();
+    appRoutine(BLUE);
+    wdt_reset();
+    if (tft.touchScreen(&tPoint) == VALID) {
+      tft.SDFgetList(&dirs, &files);
+      if (files >= 1 && tPoint.y > (songY[0] - 10) && tPoint.y < (songY[0] + 20)) {
+        while (tft.touchScreen(&tPoint) == VALID) {}
+        WAVPlayer(0);
+      } else if (files >= 2 && tPoint.y > (songY[1] - 10) && tPoint.y < (songY[1] + 20)) {
+        while (tft.touchScreen(&tPoint) == VALID) {}
+        WAVPlayer(1);
+      } else if (files >= 3 && tPoint.y > (songY[2] - 10) && tPoint.y < (songY[2] + 20)) {
+        while (tft.touchScreen(&tPoint) == VALID) {}
+        WAVPlayer(2);
+      } else if (files >= 4 && tPoint.y > (songY[3] - 10) && tPoint.y < (songY[3] + 20)) {
+        while (tft.touchScreen(&tPoint) == VALID) {}
+        WAVPlayer(3);
+      } else if (files >= 5 && tPoint.y > (songY[4] - 10) && tPoint.y < (songY[4] + 20)) {
+        while (tft.touchScreen(&tPoint) == VALID) {}
+        WAVPlayer(4);
+      }
+    }
+  }
+  exitApp();
+}
+
+void WAVPlayer(ITEMNUMBER number) {
+  drawTFTBMP("music2", 0, 0);
+  drawTopHeader(BLUE);
+  drawTFTBMP("musicPause", 100, 100);
+  tft.SDFopenDir("Music");
+  tft.SDFgetFileName(number, songBuff);
+  cutFileExtension(songBuff, ".wav");
+  tft.stopWAVFile();
+  TFTWAV(songBuff, 0);
+  tft.SDFopenDir("..");
+  while (tPoint.y >= 50) {
+    tft.touchScreen(&tPoint);
+    checkCrash();
+    wdt_reset();
+    if (tft.touchScreen(&tPoint) == VALID) {
+      if (tPoint.y >= 50) {
+        if (pause) {
+          pause = false;
+          drawTFTBMP("musicPause", 100, 100);
+
+        } else {
+          pause = true;
+          drawTFTBMP("musicPlay", 100, 100);
+        }
+      }
+    }
+  }
+  drawTFTBMP("music1", 0, 0);
+  drawTopHeader(BLUE);
+  listMusic();
+}
+
+void setApp() {
+  openApp = APP_SET;
+  screen = APP_SET;
+  draw(APP_SET);
+  while (tPoint.y > 20) {
+    tft.touchScreen(&tPoint);
+    checkCrash();
+    appRoutine(RED);
+    wdt_reset();
+  }
+  exitApp();
+}
+
+void imagesApp() {
+  openApp = APP_PHOTOS;
+  screen = APP_PHOTOS;
+  draw(APP_PHOTOS);
+  while (tPoint.y > 20) {
+    tft.touchScreen(&tPoint);
+    checkCrash();
+    appRoutine(BLUE);
+    wdt_reset();
   }
   exitApp();
 }
@@ -224,7 +532,7 @@ void drawTopHeader(int color) {
 }
 
 void checkDrawBattery() {
-  //FONAbatt = getBtry();
+  FONAbatt = getBtry();
   if (FONAbatt >= 90) {
     drawTFTBMP("batt100", 2, 2);
   } else if (FONAbatt < 90 && FONAbatt >= 65) {
@@ -235,16 +543,30 @@ void checkDrawBattery() {
     drawTFTBMP("batt25", 2, 2);
   } else if (FONAbatt < 15 && FONAbatt >= 5) {
     drawTFTBMP("batt10", 2, 2);
-    alert("Battery Low");
-  } else if (FONAbatt < 5 && FONAbatt >= 0) {
+    if (millis() - battTimer >= 30000 && allowAlert) {
+      alert("Battery Low");
+      battTimer = millis();
+    }
+  } else if (FONAbatt < 5) {
     drawTFTBMP("batt0", 2, 2);
-    alert("Battery Very Low");
+    if (allowAlert) {
+      alert("Battery Very Low (5%)\nShutting down...");
+      shutDown();
+    }
   }
 }
 
 bool startFONA() {
   fonaSerial->begin(4800);
-  return fona.begin(*fonaSerial);
+  if (fona.begin(*fonaSerial)) {
+    fona.callerIdNotification(true, FONA_RI);
+    fona.setAudio(audio);
+    fona.setVolume(vol);
+    fona.setPWM(0);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 int getBtry() {
@@ -258,7 +580,7 @@ void startTFT() {
 }
 
 void initTFT(int vol) {
-  tft.baudChange(BAUD6);
+  tft.baudChange(BAUD5);
   tft.orientation(PORTRAIT_LOW);
   tft.initDACAudio(ENABLE);
   tft.audioBoost(ENABLE);
@@ -271,12 +593,15 @@ void drawTFTBMP(FILENAME fileN, AXIS imageX, AXIS imageY) {
 
 void alert(char* text) {
   tft.imageBMPSD(10, 140, "alertBox");
-  tft.setTextColour(WHITE);
+  tft.setTextColour(BLACK);
   tft.setTextBackFill(TRANS);
   tft.setTextSize(FONT3);
   tft.string(30, 160, 300, 330, text, 0);
   while (tft.touchScreen(&tPoint) == INVALID) {
     wdt_reset();
+  }
+  if (FONAbatt >= 5) {
+    draw(screen);
   }
 }
 
@@ -294,7 +619,37 @@ void drawText(char* text, int x, int y, FONTSIZE font, int color, bool cen) {
   }
 }
 
+void shutDown() {
+  drawTFTBMP("starting", 0, 0);
+  // Shutdown FONA
+  for (i = 100; i >= 0; i--) {
+    tft.bright(i);
+    delay(10);
+  }
+  // Cut power
+  while (1) {}
+}
 
+void listMusic() {
+  tft.SDFopenDir("Music");
+  tft.SDFgetList(&dirs, &files);
+  if (files > 5) {
+    files = 5;
+  }
+  for (i = 0; i < files; i++) {
+    tft.SDFgetFileName(i, songBuff);
+    cutFileExtension(songBuff, ".wav");
+    drawText(songBuff, 30, songY[i], FONT3, BLACK, false);
+  }
+  tft.SDFopenDir("..");
+  delay(10);
+}
+
+void cutFileExtension(char *name, char *ext) {
+  char *pch;
+  pch = strstr(name, ext);
+  strncpy(pch, 0x00, 1);
+}
 
 
 
