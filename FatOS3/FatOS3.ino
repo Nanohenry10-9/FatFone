@@ -1,4 +1,4 @@
-#include <avr/wdt.h>
+//#include <avr/wdt.h>
 
 #include <Adafruit_FONA.h>
 #include <SoftwareSerial.h>
@@ -75,7 +75,7 @@ String timerBuff;
 bool con = false;
 
 void setup() {
-  wdt_reset();
+  //wdt_reset();
   Serial.begin(9600);
   startTFT();
   initTFT(10);
@@ -100,7 +100,7 @@ void setup() {
     delay(2);
   }
 
-  cli();
+  /*cli();
   wdt_reset();
   WDTCSR |= 0b00011000; // Watchdog edit mode
   WDTCSR = 0b01000000 | 0b100000; // Set watchdog [INT, RESET | DELAY]
@@ -111,14 +111,14 @@ void setup() {
   //  2 seconds: 0b000111
   //  4 seconds: 0b100000
   //  8 seconds: 0b100001
-  Serial.println(F("WDT enabled"));
+  Serial.println(F("WDT enabled"));*/
   allowAlert = true;
 
 }
 
 void loop() {
   appRoutine(BLUE); // Draw top clock, battery etc.
-  wdt_reset(); // Reset watchdog
+  //wdt_reset(); // Reset watchdog
   checkCrash();
 }
 
@@ -188,8 +188,8 @@ void draw(byte screen) {
 }
 
 void call() {
-  drawTFTBMP("phone3", 0, 0);
-  drawText(numBuff, 20, 30, FONT3, BLACK, false);
+  drawTFTBMP("phone1", 0, 0);
+  //drawText(numBuff, 20, 30, FONT3, BLACK, false);
   while (!con) {
     if (tft.touchScreen(&tPoint) == VALID) {
       if (tPoint.y >= 290) {
@@ -207,7 +207,7 @@ void call() {
             }
           }
           checkCrash();
-          wdt_reset();
+          //wdt_reset();
         }
         con = false;
         fona.hangUp();
@@ -220,7 +220,7 @@ void call() {
       }
     }
     checkCrash();
-    wdt_reset();
+    //wdt_reset();
   }
   con = false;
 }
@@ -237,7 +237,7 @@ void call(char* number) {
       }
     }
     checkCrash();
-    wdt_reset();
+    //wdt_reset();
   }
   con = false;
   fona.hangUp();
@@ -249,11 +249,11 @@ void call(char* number) {
   drawTFTBMP("phone1", 0, 0);
 }
 
-ISR(WDT_vect) {
+/*ISR(WDT_vect) {
   crash = 1;
   fona.hangUp();
   fona.setPWM(0);
-}
+}*/
 
 void checkCrash() {
   if (crash) {
@@ -317,7 +317,7 @@ void phoneApp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(RED);
-    wdt_reset();
+    //wdt_reset();
     if (tft.touchScreen(&tPoint) == VALID) {
       if (tPoint.x >= 0 && tPoint.y >= 0 && tPoint.x <= 160 && tPoint.y <= 180) {
         tft.drawRectangle(6, 195, 313, 265, WHITE, (FILLGEOM)true);
@@ -419,7 +419,7 @@ void SMSapp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(GREEN);
-    wdt_reset();
+    //wdt_reset();
   }
   exitApp();
 }
@@ -432,7 +432,7 @@ void musicApp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(BLUE);
-    wdt_reset();
+    //wdt_reset();
     if (tft.touchScreen(&tPoint) == VALID) {
       tft.SDFgetList(&dirs, &files);
       if (files >= 1 && tPoint.y > (songY[0] - 10) && tPoint.y < (songY[0] + 20)) {
@@ -469,7 +469,7 @@ void WAVPlayer(ITEMNUMBER number) {
   while (tPoint.y >= 50) {
     tft.touchScreen(&tPoint);
     checkCrash();
-    wdt_reset();
+    //wdt_reset();
     if (tft.touchScreen(&tPoint) == VALID) {
       if (tPoint.y >= 50) {
         if (pause) {
@@ -496,7 +496,7 @@ void setApp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(RED);
-    wdt_reset();
+    //wdt_reset();
   }
   exitApp();
 }
@@ -509,7 +509,7 @@ void imagesApp() {
     tft.touchScreen(&tPoint);
     checkCrash();
     appRoutine(BLUE);
-    wdt_reset();
+    //wdt_reset();
   }
   exitApp();
 }
@@ -580,7 +580,7 @@ void startTFT() {
 }
 
 void initTFT(int vol) {
-  tft.baudChange(BAUD5);
+  tft.baudChange(BAUD6);
   tft.orientation(PORTRAIT_LOW);
   tft.initDACAudio(ENABLE);
   tft.audioBoost(ENABLE);
@@ -598,7 +598,7 @@ void alert(char* text) {
   tft.setTextSize(FONT3);
   tft.string(30, 160, 300, 330, text, 0);
   while (tft.touchScreen(&tPoint) == INVALID) {
-    wdt_reset();
+    //wdt_reset();
   }
   if (FONAbatt >= 5) {
     draw(screen);

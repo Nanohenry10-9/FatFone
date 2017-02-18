@@ -33,6 +33,7 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define greenyellow   ILI9341_GREENYELLOW
 #define darkgrey      ILI9341_DARKGREY
 #define yellow        ILI9341_YELLOW
+#define orange        ILI9341_ORANGE
 
 #define MENU          0
 #define APP_PHONE     1
@@ -42,7 +43,8 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define APP_RADIO     5
 #define APP_CLOCK     6
 #define APP_PAINT     7
-#define APP_REMOTE    8
+#define APP_RACE      8
+#define APP_MEMO      9
 
 #define KEYPAD_CHARS  -2
 #define KEYPAD_NUMS   -1
@@ -67,12 +69,12 @@ bool noFONA = false;
 bool hasStarted = false;
 
 #define appSize 60
-byte appLocX[] = {10, 90, 170, 10, 90, 170, 10, 90};
-byte appLocY[] = {60, 60, 60, 140, 140, 140, 220, 220};
-uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, black};
-char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "TVRemote"};
-byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 7};
-byte appAmount = 8;
+byte appLocX[] = {10, 90, 170, 10, 90, 170, 10, 90, 170};
+byte appLocY[] = {60, 60, 60, 140, 140, 140, 220, 220, 220};
+uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, red, orange};
+char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "Race", "Memo"};
+byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 17, 17};
+byte appAmount = 9;
 #define appAnimFrames 71
 
 char errorFONA[] = {"!FONA"};
@@ -106,6 +108,8 @@ int y;
 TS_Point tPoint;
 
 int blToA;
+
+String memos[3] = {{"\n"}, {"\n"}, {"\n"}};
 
 void setup() {
   cli();
@@ -231,8 +235,8 @@ void draw(int a) {
       draw(KEYPAD_NUMS);
       break;
     case APP_SETTINGS:
-      drawText("BACK", 5, 18, 2, white, appColor[3]);
-      drawTime(appColor[3]);
+      drawText("BACK", 5, 18, 2, white, appColor[2]);
+      drawTime(appColor[2]);
       drawBattery();
       drawText("BACKLIGHT", 65, 70, 2, black, white);
       tft.drawFastHLine(20, 110, 200, black);
@@ -329,6 +333,16 @@ void draw(int a) {
       tft.fillRect(171, 291, 18, 18, blue);
       tft.drawFastVLine(214, 290, 20, black);
       tft.drawFastHLine(204, 300, 20, black);
+      break;
+    case APP_RACE:
+      drawTime(appColor[7]);
+      drawBattery();
+      drawText("BACK", 5, 18, 2, white, appColor[7]);
+      break;
+    case APP_MEMO:
+      drawTime(appColor[8]);
+      drawBattery();
+      drawText("BACK", 5, 18, 2, white, appColor[8]);
       break;
     case KEYPAD_NUMS:
       tft.fillRect(0, 189, 240, 160, white);
@@ -487,6 +501,38 @@ void openApp(byte a) {
       tft.fillRect(0, 50, 240, 270, white);
       paintApp();
       break;
+    case APP_RACE:
+      for (int i = 0; i < appAnimFrames; i++) {
+        if (i % 6 == 0 || i == 70) {
+          y = map(i, 0, 70, appLocY[7], 0);
+          if (i != 0) {
+            tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
+          }
+          x = map(i, 0, 70, appLocX[7], 0);
+          sizeX = map(i, 0, 70, appSize, 240);
+          sizeY = map(i, 0, 70, appSize, 50);
+          tft.fillRect(x, y, sizeX, sizeY, appColor[7]);
+        }
+      }
+      tft.fillRect(0, 50, 240, 270, white);
+      raceApp();
+      break;
+    case APP_MEMO:
+      for (int i = 0; i < appAnimFrames; i++) {
+        if (i % 6 == 0 || i == 70) {
+          y = map(i, 0, 70, appLocY[8], 0);
+          if (i != 0) {
+            tft.fillRect(x, (y + sizeY), sizeX, 20, cyan);
+          }
+          x = map(i, 0, 70, appLocX[8], 0);
+          sizeX = map(i, 0, 70, appSize, 240);
+          sizeY = map(i, 0, 70, appSize, 50);
+          tft.fillRect(x, y, sizeX, sizeY, appColor[8]);
+        }
+      }
+      tft.fillRect(0, 50, 240, 270, white);
+      memoApp();
+      break;
   }
 }
 
@@ -553,6 +599,18 @@ void touchHandler() {
     drawText(appName[6], (appLocX[6] + appNamePlusX[6]), (appLocY[6] + 26), 1, black, appColor[6]);
     appOnScreen = APP_PAINT;
     openApp(APP_PAINT);
+  } else if (x >= appLocX[7] && y >= appLocY[7] && x <= (appLocX[7] + appSize) && y <= (appLocY[7] + appSize)) {
+    drawText(appName[7], (appLocX[7] + appNamePlusX[7]), (appLocY[7] + 26), 1, white, appColor[7]);
+    while (ts.touched()) {}
+    drawText(appName[7], (appLocX[7] + appNamePlusX[7]), (appLocY[7] + 26), 1, black, appColor[7]);
+    appOnScreen = APP_RACE;
+    openApp(APP_RACE);
+  } else if (x >= appLocX[8] && y >= appLocY[8] && x <= (appLocX[8] + appSize) && y <= (appLocY[8] + appSize)) {
+    drawText(appName[8], (appLocX[8] + appNamePlusX[8]), (appLocY[8] + 26), 1, white, appColor[8]);
+    while (ts.touched()) {}
+    drawText(appName[8], (appLocX[8] + appNamePlusX[8]), (appLocY[8] + 26), 1, black, appColor[8]);
+    appOnScreen = APP_MEMO;
+    openApp(APP_MEMO);
   } else {
     tft.invertDisplay(true);
     while (ts.touched()) {}
@@ -985,6 +1043,7 @@ void smsApp() {
             drawSMS();
           } else {
             tft.setCursor(50, mesLocY[2]);
+            tft.setTextColor(black, white);
             tft.print(F("NO MESSAGES"));
           }
         }
@@ -1565,6 +1624,45 @@ ISR(WDT_vect) {
     cli();
     while (1) {}
   }
+}
+
+void raceApp() {
+  // *Insert racing game here*
+  draw(APP_RACE);
+  while (!appExit) {
+    if (ts.touched()) {
+      tPoint = ts.getPoint();
+      x = map(tPoint.x, 0, 240, 240, 0);
+      y = map(tPoint.y, 0, 320, 320, 0);
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, red);
+        appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, red);
+      }
+    }
+  }
+  appExit = false;
+  exitApp();
+}
+
+void memoApp() {
+  draw(APP_MEMO);
+  while (!appExit) {
+    if (ts.touched()) {
+      tPoint = ts.getPoint();
+      x = map(tPoint.x, 0, 240, 240, 0);
+      y = map(tPoint.y, 0, 320, 320, 0);
+      if (y <= 50) {
+        drawText("BACK", 5, 18, 2, black, orange);
+        appExit = true;
+        while (ts.touched()) {}
+        drawText("BACK", 5, 18, 2, white, orange);
+      }
+    }
+  }
+  appExit = false;
+  exitApp();
 }
 
 
