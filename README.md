@@ -41,7 +41,9 @@ Future implementations:
 
 # FatOS 3 (FatFone 2)
 
-The most recent version of FatOS, which runs on FatFone 2.
+The second most recent version of FatOS, which runs on FatFone 2.
+
+NOTE: This version is very unstable and crashes too often. But, FatOS 4 is now under developement.
 
 Ver. 3.1
 
@@ -55,6 +57,10 @@ Required hardware:
 - ADXL335 Adafruit Accelerometer *
 
 * Currently not in use
+
+# FatOS 4 (FatFone B)
+
+The newest FatOS. Hardware is still under heavy developement, and is not listed below.
 
 The logo:
 
