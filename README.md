@@ -5,10 +5,10 @@ Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.
 
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
+There are different versions of FatFone.
+
 
 # FatOS 1
-
-Ver. 1.50
 
 Functions:
 - Phone calls (calling, answering)
@@ -26,8 +26,6 @@ To make the about-button (in the settings) work correctly, the text it will writ
 
 # FatOS 2
 
-Ver. 2.8
-
 Runs on FatFone 1 or FatFone 1M (same with FatOS 1). 
 
 Functions:
@@ -38,14 +36,26 @@ Functions:
 Future implementations:
 - Settings app
 
+# FatOS 2M & 2MB
+
+Runs on FatFone 2M and 2MB
+
+This is an updated version of FatOS 2 with more flash usage and two extenal buttons (only FatFone & FatOS 2MB) (home and back, pins 18 and 19 in that order).
+
+All the FatOS 2 functions are still there, but there is also some added functions such as a paint app, radio app etc.
+
+Hardware:
+- Arduino Mega ADK
+- Arduino compatible Adafruit FONA 800 shield and a loudspeaker, mic and other required hardware (described at the top)
+- Adafruit 2.8" TFT shield for Arduino w/ Capacitive Touch
+- Two pushbuttons and jumper wires
+
 
 # FatOS 3 (FatFone 2)
 
 The second most recent version of FatOS, which runs on FatFone 2.
 
-NOTE: This version is very unstable and crashes too often. But, FatOS 4 is now under developement.
-
-Ver. 3.1
+NOTE: FatFone 3 is very unstable and crashes too often. The SmartGPU2 TFT doesn't function correctly with the FONA shield.
 
 Required hardware:
 - Arduino MEGA ADK
@@ -61,6 +71,7 @@ Required hardware:
 # FatOS 4 (FatFone B)
 
 The newest FatOS. Hardware is still under heavy developement, and is not listed below.
+
 
 The logo:
 

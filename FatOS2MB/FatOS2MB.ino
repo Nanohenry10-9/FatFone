@@ -1,15 +1,17 @@
-// Arduino MEGA ADK version!
+// Sketch needs an AVR board with over 32KB of flash!
 
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
 #include <Adafruit_FT6206.h>
 #include <SoftwareSerial.h>
+#include <SD.h>
 
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
 #define TFT_CS 10
 #define TFT_DC 9
 #define TFT_BL 5
+#define SD_CS 4
 Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 #define FONA_RX 2
@@ -78,9 +80,9 @@ byte appAmount = 9;
 
 char errorFONA[] = {"!FONA"};
 
-byte bl = 12;
+byte bl = 5;
 byte audio = FONA_EXTAUDIO;
-byte volume = 50;
+byte volume = 5;
 
 char RTCtime[23];
 
@@ -110,16 +112,19 @@ int blToA;
 
 String memos[3] = {{"\n"}, {"\n"}, {"\n"}};
 
-#define BTN_BACK 32
-#define BTN_HOME 31
+#define BTN_BACK 19
+#define BTN_HOME 18
+
+File SDfile;
 
 void setup() {
   ts.begin(40);
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, LOW);
   pinMode(BTN_HOME, INPUT_PULLUP);
   pinMode(BTN_BACK, INPUT_PULLUP);
+  SD.begin(SD_CS);
   tft.begin();
   tft.setRotation(0);
   tft.setTextWrap(false);
@@ -138,7 +143,74 @@ void setup() {
   tft.setTextColor(white);
   tft.print(F("Starting"));
   tft.setCursor(85, 200);
-  blToA = map(bl, 0, 20, 0, 255);
+
+  Serial.println(F("Reading settings from SD..."));
+  Serial.print(F("audio: "));
+  SDfile = SD.open("AUD_TYP.txt");
+  audio = SDfile.read();
+  SDfile.close();
+  if (audio == 48) {
+    audio = 0;
+  } else {
+    audio = 1;
+  }
+  Serial.print(audio);
+  Serial.print(F(", vol: "));
+
+  SDfile = SD.open("SET_VOL.txt");
+  volume = SDfile.read();
+  SDfile.close();
+  if (volume == 48) {
+    volume = 1;
+  } else if (volume == 49) {
+    volume = 2;
+  } else if (volume == 50) {
+    volume = 3;
+  } else if (volume == 51) {
+    volume = 4;
+  } else if (volume == 52) {
+    volume = 5;
+  } else if (volume == 53) {
+    volume = 6;
+  } else if (volume == 54) {
+    volume = 7;
+  } else if (volume == 55) {
+    volume = 8;
+  } else if (volume == 56) {
+    volume = 9;
+  } else if (volume == 57) {
+    volume = 10;
+  }
+  Serial.print(volume);
+  Serial.print(F(", bl: "));
+
+  SDfile = SD.open("SET_BL.txt");
+  bl = SDfile.read();
+  SDfile.close();
+  if (bl == 48) {
+    bl = 1;
+  } else if (bl == 49) {
+    bl = 2;
+  } else if (bl == 50) {
+    bl = 3;
+  } else if (bl == 51) {
+    bl = 4;
+  } else if (bl == 52) {
+    bl = 5;
+  } else if (bl == 53) {
+    bl = 6;
+  } else if (bl == 54) {
+    bl = 7;
+  } else if (bl == 55) {
+    bl = 8;
+  } else if (bl == 56) {
+    bl = 9;
+  } else if (bl == 57) {
+    bl = 10;
+  }
+  Serial.println(bl);
+
+  blToA = map(bl, 0, 10, 0, 255);
   for (int i = 0; i <= blToA; i++) {
     analogWrite(TFT_BL, i);
     delay(10);
@@ -161,7 +233,7 @@ void setup() {
     fona.setAudio(audio);
     tft.print('.');
     fona.setPWM(2000);
-    fona.setAllVolumes(volume);
+    fona.setAllVolumes(volume * 10);
     tft.print(F("."));
     fona.setPWM(0);
     if (fona.getNetworkStatus() == 2) {
@@ -236,7 +308,7 @@ void draw(int a) {
       tft.drawFastVLine(120, 95, 30, black);
       tft.drawFastVLine(70, 100, 20, black);
       tft.drawFastVLine(170, 100, 20, black);
-      tft.fillRect(map(bl, 1, 20, 20, 210), 90, 10, 40, darkgrey);
+      tft.fillRect(map(bl, 1, 10, 20, 210), 90, 10, 40, darkgrey);
       drawText("VOLUME", 85, 150, 2, black, white);
       tft.drawFastHLine(20, 190, 200, black);
       tft.drawFastVLine(20, 170, 40, black);
@@ -244,7 +316,7 @@ void draw(int a) {
       tft.drawFastVLine(120, 175, 30, black);
       tft.drawFastVLine(70, 180, 20, black);
       tft.drawFastVLine(170, 180, 20, black);
-      tft.fillRect(map(volume, 0, 100, 20, 210), 170, 10, 40, darkgrey);
+      tft.fillRect(map(volume, 1, 10, 20, 210), 170, 10, 40, darkgrey);
       break;
     case APP_PONG:
       tft.fillScreen(black);
@@ -530,7 +602,7 @@ void drawText(char* text, byte locX, byte locY, byte textSize, uint16_t color, u
 }
 
 void backlight(int a) {
-  int b = map(a, 0, 20, 0, 255);
+  int b = map(a, 0, 10, 0, 255);
   analogWrite(TFT_BL, b);
 }
 
@@ -1123,20 +1195,26 @@ void setApp() {
           if (x >= 20 && x <= 220) {
             if (oldX != x) {
               oldX = x;
-              tft.fillRect(map(volume, 0, 100, 20, 210), 170, 10, 40, white);
+              tft.fillRect(map(volume, 1, 10, 20, 210), 170, 10, 40, white);
               tft.drawFastHLine(20, 190, 200, black);
               tft.drawFastVLine(20, 170, 40, black);
               tft.drawFastVLine(220, 170, 40, black);
               tft.drawFastVLine(120, 175, 30, black);
               tft.drawFastVLine(70, 180, 20, black);
               tft.drawFastVLine(170, 180, 20, black);
-              volume = map(x, 20, 220, 0, 100);
-              tft.fillRect(map(volume, 0, 100, 20, 210), 170, 10, 40, darkgrey);
+              volume = map(x, 20, 220, 1, 10);
+              tft.fillRect(map(volume, 1, 10, 20, 210), 170, 10, 40, darkgrey);
             }
           }
         }
         if (!noFONA) {
-          fona.setAllVolumes(volume);
+          fona.setAllVolumes(volume * 10);
+          SD.remove("SET_VOL.txt");
+          SDfile = SD.open("SET_VOL.txt", FILE_WRITE);
+          SDfile.print(volume - 1);
+          Serial.print("Setting saved on SD: Volume = ");
+          Serial.println(volume);
+          SDfile.close();
         }
       } else if (x >= 20 && y >= 90 && x <= 220 && y <= 130) {
         while (ts.touched()) {
@@ -1145,19 +1223,25 @@ void setApp() {
           if (x >= 20 && x <= 220) {
             if (oldX != x) {
               oldX = x;
-              tft.fillRect(map(bl, 1, 20, 20, 210), 90, 10, 40, white);
+              tft.fillRect(map(bl, 1, 10, 20, 210), 90, 10, 40, white);
               tft.drawFastHLine(20, 110, 200, black);
               tft.drawFastVLine(20, 90, 40, black);
               tft.drawFastVLine(220, 90, 40, black);
               tft.drawFastVLine(120, 95, 30, black);
               tft.drawFastVLine(70, 100, 20, black);
               tft.drawFastVLine(170, 100, 20, black);
-              bl = map(x, 20, 220, 1, 20);
-              tft.fillRect(map(bl, 1, 20, 20, 210), 90, 10, 40, darkgrey);
+              bl = map(x, 20, 220, 1, 10);
+              tft.fillRect(map(bl, 1, 10, 20, 210), 90, 10, 40, darkgrey);
             }
           }
           backlight(bl);
         }
+        SD.remove("SET_BL.txt");
+        SDfile = SD.open("SET_BL.txt", FILE_WRITE);
+        SDfile.print(bl - 1);
+        Serial.print("Setting saved on SD: Backlight level = ");
+        Serial.println(bl);
+        SDfile.close();
       }
       while (ts.touched()) {}
     }
@@ -1286,6 +1370,7 @@ void exitApp() {
     tft.drawFastVLine(map(i, 50, 320, 0, 240), 0, 50, blue);
   }
   draw(MENU);
+  appOnScreen = MENU;
 }
 
 void lock() {
@@ -1490,13 +1575,13 @@ void clockApp() {
   int ySec = 80;
   float seconds = 0;
   /*int timeBuff[3] = {' '};
-  if (noFONA) {
+    if (noFONA) {
     for (int i = 10; i < 15; i++) {
       RTCtime[i] = errorFONA[i - 10];
     }
-  } else {
+    } else {
     fona.getTime(RTCtime, 23);
-  }*/
+    }*/
   float minutes = 0;
   //minutes = ((RTCtime[13] * 10) + RTCtime[14]);
   float hours = 0;
@@ -1504,7 +1589,7 @@ void clockApp() {
   float mAngle = 0;
   float hAngle = 0;
   float sAngle = 0;
-  int timer = 0;
+  long int timer = 0;
   const int cenX = 120;
   const int cenY = 180;
   while (!appExit) {
@@ -1523,19 +1608,19 @@ void clockApp() {
       tft.drawLine(cenX, cenY, xHour, yHour, white);
       tft.drawLine(cenX, cenY, xMinute, yMinute, white);
       tft.drawLine(cenX, cenY, xSec, ySec, white);
-      
+
       mAngle = (PI * 2) / 60 * minutes;
       xMinute = cenX - (100 * sin(mAngle));
       yMinute = cenY + (100 * cos(mAngle));
       yMinute = map(yMinute, 80, 280, 280, 80);
       xMinute = map(xMinute, 20, 220, 220, 20);
-      
+
       hAngle = (PI * 2) / 12 * hours;
       xHour = cenX - (70 * sin(hAngle));
       yHour = cenY + (70 * cos(hAngle));
       yHour = map(yHour, 80, 280, 280, 80);
       xHour = map(xHour, 20, 220, 220, 20);
-      
+
       sAngle = (PI * 2) / 60 * seconds;
       xSec = cenX - (90 * sin(sAngle));
       ySec = cenY + (90 * cos(sAngle));
@@ -1545,7 +1630,7 @@ void clockApp() {
       tft.drawLine(cenX, cenY, xHour, yHour, white);
       tft.drawLine(cenX, cenY, xMinute, yMinute, white);
       tft.drawLine(cenX, cenY, xSec, ySec, white);
-      
+
       tft.drawLine(cenX, cenY, xHour, yHour, black);
       tft.drawLine(cenX, cenY, xMinute, yMinute, red);
       tft.drawLine(cenX, cenY, xSec, ySec, blue);
