@@ -51,24 +51,7 @@ Hardware:
 - Two pushbuttons and jumper wires
 
 
-# FatOS 3 (FatFone 2)
-
-The second most recent version of FatOS, which runs on FatFone 2.
-
-NOTE: FatFone 3 is very unstable and crashes too often. The SmartGPU2 TFT doesn't function correctly with the FONA shield.
-
-Required hardware:
-- Arduino MEGA ADK
-- Adafruit FONA 800 shield for Arduino (described at top of README)
-- SmartGPU 2 320x480 pixel 3.5" display
-- uSD card (and system files like graphics on the SD)
-- RGB (status) LED *
-- VL6180X Adafruit Time of Flight sensor *
-- ADXL335 Adafruit Accelerometer *
-
-* Currently not in use
-
-# FatOS 4 (FatFone B)
+# FatOS 3 (FatFone B)
 
 The newest FatOS. Hardware is still under heavy developement, and is not listed below.
 

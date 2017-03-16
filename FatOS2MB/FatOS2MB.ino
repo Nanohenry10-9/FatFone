@@ -44,8 +44,8 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define APP_RADIO     5
 #define APP_CLOCK     6
 #define APP_PAINT     7
-#define APP_RACE      8
-#define APP_MEMO      9
+#define APP_CALC      8
+#define APP_CONTACTS  9
 
 #define KEYPAD_CHARS  -2
 #define KEYPAD_NUMS   -1
@@ -61,20 +61,21 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 #define NUM_FIELD 0
 #define MSG_FIELD 1
 
-bool debug = 1;
+bool debug = 0;
 
 bool locked = 0;
 
 bool noFONA = false;
+bool noSD = false;
 
 bool hasStarted = false;
 
 #define appSize 60
 byte appLocX[] = {10, 90, 170, 10, 90, 170, 10, 90, 170};
 byte appLocY[] = {60, 60, 60, 140, 140, 140, 220, 220, 220};
-uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, red, orange};
-char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "Race", "Memo"};
-byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 17, 17};
+uint16_t appColor[] = {red, green, lightgrey, black, navy, darkgrey, maroon, orange, navy};
+char* appName[] = {"Phone", "Messages", "Settings", "Pong", "Radio", "Clock", "Paint", "Calc", "Contacts"};
+byte appNamePlusX[] = {15, 7, 7, 17, 15, 15, 15, 17, 7};
 byte appAmount = 9;
 #define appAnimFrames 71
 
@@ -94,9 +95,12 @@ bool appExit = false;
 
 char givenPNumber[14] = {' '};
 int mesLocY[] = {100, 160, 220, 280};
+int pNumCount = 0;
 
 char chars[] = "aAbBcCdDeEfFgGhHiIjJkKlLmMnNoOpPqQrRsStTuUvVwWxXyYzZ.!? ";
-byte charOnScreenNum = 0;
+char message[21] = {' '};
+int charOnScreenNum = 0;
+int messageIndex = 0;
 
 uint16_t channelNums[5] = {0, 0, 0, 0};
 uint16_t channelNum = 0000;
@@ -114,8 +118,15 @@ String memos[3] = {{"\n"}, {"\n"}, {"\n"}};
 
 #define BTN_BACK 19
 #define BTN_HOME 18
+long int btnTimer = 0;
+
+int battPercent = 0;
+int netState = 0;
 
 File SDfile;
+
+float calcResult = 0;
+char* calcString[13] = {" "};
 
 void setup() {
   ts.begin(40);
@@ -124,7 +135,9 @@ void setup() {
   digitalWrite(TFT_BL, LOW);
   pinMode(BTN_HOME, INPUT_PULLUP);
   pinMode(BTN_BACK, INPUT_PULLUP);
-  SD.begin(SD_CS);
+  if (!SD.begin(SD_CS)) {
+    noSD = true;
+  }
   tft.begin();
   tft.setRotation(0);
   tft.setTextWrap(false);
@@ -142,83 +155,91 @@ void setup() {
   tft.setCursor(50, 170);
   tft.setTextColor(white);
   tft.print(F("Starting"));
-  tft.setCursor(85, 200);
 
-  Serial.println(F("Reading settings from SD..."));
-  Serial.print(F("audio: "));
-  SDfile = SD.open("AUD_TYP.txt");
-  audio = SDfile.read();
-  SDfile.close();
-  if (audio == 48) {
-    audio = 0;
+  if (!noSD) {
+
+    Serial.println(F("Reading settings from SD..."));
+    Serial.print(F("audio: "));
+    SDfile = SD.open("AUD_TYP.txt");
+    audio = SDfile.read();
+    SDfile.close();
+    if (audio == 48) {
+      audio = 0;
+    } else {
+      audio = 1;
+    }
+    Serial.print(audio);
+    Serial.print(F(", vol: "));
+
+    SDfile = SD.open("SET_VOL.txt");
+    volume = SDfile.read();
+    SDfile.close();
+    if (volume == 48) {
+      volume = 1;
+    } else if (volume == 49) {
+      volume = 2;
+    } else if (volume == 50) {
+      volume = 3;
+    } else if (volume == 51) {
+      volume = 4;
+    } else if (volume == 52) {
+      volume = 5;
+    } else if (volume == 53) {
+      volume = 6;
+    } else if (volume == 54) {
+      volume = 7;
+    } else if (volume == 55) {
+      volume = 8;
+    } else if (volume == 56) {
+      volume = 9;
+    } else if (volume == 57) {
+      volume = 10;
+    }
+    Serial.print(volume);
+    Serial.print(F(", bl: "));
+
+    SDfile = SD.open("SET_BL.txt");
+    bl = SDfile.read();
+    SDfile.close();
+    if (bl == 48) {
+      bl = 1;
+    } else if (bl == 49) {
+      bl = 2;
+    } else if (bl == 50) {
+      bl = 3;
+    } else if (bl == 51) {
+      bl = 4;
+    } else if (bl == 52) {
+      bl = 5;
+    } else if (bl == 53) {
+      bl = 6;
+    } else if (bl == 54) {
+      bl = 7;
+    } else if (bl == 55) {
+      bl = 8;
+    } else if (bl == 56) {
+      bl = 9;
+    } else if (bl == 57) {
+      bl = 10;
+    }
+    Serial.println(bl);
+
   } else {
-    audio = 1;
+    drawText("NO SD CARD", 65, 250, 2, red, navy);
   }
-  Serial.print(audio);
-  Serial.print(F(", vol: "));
-
-  SDfile = SD.open("SET_VOL.txt");
-  volume = SDfile.read();
-  SDfile.close();
-  if (volume == 48) {
-    volume = 1;
-  } else if (volume == 49) {
-    volume = 2;
-  } else if (volume == 50) {
-    volume = 3;
-  } else if (volume == 51) {
-    volume = 4;
-  } else if (volume == 52) {
-    volume = 5;
-  } else if (volume == 53) {
-    volume = 6;
-  } else if (volume == 54) {
-    volume = 7;
-  } else if (volume == 55) {
-    volume = 8;
-  } else if (volume == 56) {
-    volume = 9;
-  } else if (volume == 57) {
-    volume = 10;
-  }
-  Serial.print(volume);
-  Serial.print(F(", bl: "));
-
-  SDfile = SD.open("SET_BL.txt");
-  bl = SDfile.read();
-  SDfile.close();
-  if (bl == 48) {
-    bl = 1;
-  } else if (bl == 49) {
-    bl = 2;
-  } else if (bl == 50) {
-    bl = 3;
-  } else if (bl == 51) {
-    bl = 4;
-  } else if (bl == 52) {
-    bl = 5;
-  } else if (bl == 53) {
-    bl = 6;
-  } else if (bl == 54) {
-    bl = 7;
-  } else if (bl == 55) {
-    bl = 8;
-  } else if (bl == 56) {
-    bl = 9;
-  } else if (bl == 57) {
-    bl = 10;
-  }
-  Serial.println(bl);
 
   blToA = map(bl, 0, 10, 0, 255);
   for (int i = 0; i <= blToA; i++) {
     analogWrite(TFT_BL, i);
     delay(10);
   }
-  if (ts.touched()) {
+  if (digitalRead(BTN_BACK) == 0 && digitalRead(BTN_HOME) == 0) {
     noFONA = true;
     drawText("FONA BYPASSED", 43, 250, 2, green, navy);
   } else {
+    tft.setCursor(85, 200);
+    tft.setTextColor(white, navy);
+    tft.setTextSize(3);
     Serial.println(F("Starting FONA 1/2..."));
     fonaSerial->begin(4800);
     tft.print('.');
@@ -236,9 +257,10 @@ void setup() {
     fona.setAllVolumes(volume * 10);
     tft.print(F("."));
     fona.setPWM(0);
-    if (fona.getNetworkStatus() == 2) {
-      while (fona.getNetworkStatus() == 2) {}
-    } else if (fona.getNetworkStatus() == 1) {
+    netState = fona.getNetworkStatus();
+    if (netState == 2) {
+      while (netState == 2) {}
+    } else if (netState == 1) {
       drawText("NETWORK FOUND", 45, 250, 2, white, navy);
     } else {
       drawText("NO NETWORK", 63, 250, 2, red, navy);
@@ -259,6 +281,25 @@ void loop() {
   }
   if (ts.touched()) {
     touchHandler();
+  }
+  if (digitalRead(BTN_BACK) == 0 && digitalRead(BTN_HOME) == 0) {
+    btnTimer = millis();
+    while (digitalRead(BTN_BACK) == 0 && digitalRead(BTN_HOME) == 0) {}
+    if (millis() - btnTimer > 6000) {
+      tft.fillRect(20, 100, 200, 100, white);
+      tft.drawRect(20, 100, 200, 100, black);
+      tft.setTextColor(black, white);
+      tft.setTextSize(3);
+      tft.setCursor(40, 120);
+      tft.print(F("Restart?"));
+      tft.setCursor(40, 160);
+      tft.print(F("YES    NO"));
+      while (digitalRead(BTN_BACK) == 1 && digitalRead(BTN_HOME) == 1) {}
+      if (digitalRead(BTN_BACK) == 0) {
+        asm volatile ("jmp 0");
+      }
+      exitApp();
+    }
   }
 }
 
@@ -282,8 +323,8 @@ void draw(int a) {
       drawText("PICK UP", 25, 87, 2, white, green);
       tft.fillRect(130, 70, 90, 50, red);
       drawText("END", 157, 87, 2, white, red);
-      tft.fillRect(20, 130, 200, 40, lightgrey);
-      drawText("KEYPAD", 85, 142, 2, black, lightgrey);
+      tft.fillRect(20, 140, 200, 80, lightgrey);
+      drawText("KEYPAD", 65, 168, 3, black, lightgrey);
       break;
     case APP_SMS:
       drawTime(appColor[1]);
@@ -309,6 +350,7 @@ void draw(int a) {
       tft.drawFastVLine(70, 100, 20, black);
       tft.drawFastVLine(170, 100, 20, black);
       tft.fillRect(map(bl, 1, 10, 20, 210), 90, 10, 40, darkgrey);
+
       drawText("VOLUME", 85, 150, 2, black, white);
       tft.drawFastHLine(20, 190, 200, black);
       tft.drawFastVLine(20, 170, 40, black);
@@ -317,6 +359,17 @@ void draw(int a) {
       tft.drawFastVLine(70, 180, 20, black);
       tft.drawFastVLine(170, 180, 20, black);
       tft.fillRect(map(volume, 1, 10, 20, 210), 170, 10, 40, darkgrey);
+
+      drawText("AUDIO OUT", 65, 230, 2, black, white);
+      tft.fillRect(30, 260, 180, 50, lightgrey);
+      tft.drawRect(30, 260, 180, 50, black);
+      tft.drawFastVLine(120, 260, 50, black);
+      tft.setTextSize(1);
+      tft.setTextColor(black, lightgrey);
+      tft.setCursor(45, 285);
+      tft.print(F("LOUDSPEAKER"));
+      tft.setCursor(135, 285);
+      tft.print(F("HEADPHONES"));
       break;
     case APP_PONG:
       tft.fillScreen(black);
@@ -374,8 +427,8 @@ void draw(int a) {
     case APP_CLOCK:
       drawTime(appColor[5]);
       drawBattery();
-      tft.drawCircle(120, 180, 101, black);
-      tft.drawCircle(120, 180, 102, black);
+      tft.drawCircle(120, 160, 101, black);
+      tft.drawCircle(120, 160, 102, black);
       break;
     case APP_PAINT:
       drawTime(appColor[6]);
@@ -394,11 +447,70 @@ void draw(int a) {
       tft.drawFastVLine(214, 290, 20, black);
       tft.drawFastHLine(204, 300, 20, black);
       break;
-    case APP_RACE:
+    case APP_CALC:
       drawTime(appColor[7]);
       drawBattery();
+      tft.drawRect(20, 60, 200, 40, black);
+      tft.fillRect(20, 110, 200, 40, orange);
+      tft.fillRect(20, 160, 200, 40, orange);
+      tft.fillRect(20, 210, 200, 40, orange);
+      tft.fillRect(20, 260, 200, 40, orange);
+      
+      tft.drawFastVLine(70, 110, 40, black);
+      tft.drawFastVLine(120, 110, 40, black);
+      tft.drawFastVLine(170, 110, 40, black);
+      
+      tft.drawFastVLine(70, 160, 40, black);
+      tft.drawFastVLine(120, 160, 40, black);
+      tft.drawFastVLine(170, 160, 40, black);
+      
+      tft.drawFastVLine(70, 210, 40, black);
+      tft.drawFastVLine(120, 210, 40, black);
+      tft.drawFastVLine(170, 210, 40, black);
+
+      tft.drawFastVLine(70, 260, 40, black);
+      tft.drawFastVLine(120, 260, 40, black);
+      tft.drawFastVLine(170, 260, 40, black);
+
+      tft.setTextColor(black, orange);
+      tft.setTextSize(3);
+      tft.setCursor(35, 120);
+      tft.print(1);
+      tft.setCursor(85, 120);
+      tft.print(2);
+      tft.setCursor(135, 120);
+      tft.print(3);
+      tft.setCursor(185, 120);
+      tft.print(4);
+      
+      tft.setCursor(35, 170);
+      tft.print(5);
+      tft.setCursor(85, 170);
+      tft.print(6);
+      tft.setCursor(135, 170);
+      tft.print(7);
+      tft.setCursor(185, 170);
+      tft.print(8);
+      
+      tft.setCursor(35, 220);
+      tft.print(9);
+      tft.setCursor(85, 220);
+      tft.print(0);
+      tft.setCursor(135, 220);
+      tft.print('C');
+      tft.setCursor(185, 220);
+      tft.print('=');
+      
+      tft.setCursor(35, 270);
+      tft.print('+');
+      tft.setCursor(85, 270);
+      tft.print('-');
+      tft.setCursor(135, 270);
+      tft.print('*');
+      tft.setCursor(185, 270);
+      tft.print('/');
       break;
-    case APP_MEMO:
+    case APP_CONTACTS:
       drawTime(appColor[8]);
       drawBattery();
       break;
@@ -559,7 +671,7 @@ void openApp(byte a) {
       tft.fillRect(0, 50, 240, 270, white);
       paintApp();
       break;
-    case APP_RACE:
+    case APP_CALC:
       for (int i = 0; i < appAnimFrames; i++) {
         if (i % 6 == 0 || i == 70) {
           y = map(i, 0, 70, appLocY[7], 0);
@@ -573,9 +685,9 @@ void openApp(byte a) {
         }
       }
       tft.fillRect(0, 50, 240, 270, white);
-      raceApp();
+      calcApp();
       break;
-    case APP_MEMO:
+    case APP_CONTACTS:
       for (int i = 0; i < appAnimFrames; i++) {
         if (i % 6 == 0 || i == 70) {
           y = map(i, 0, 70, appLocY[8], 0);
@@ -589,7 +701,7 @@ void openApp(byte a) {
         }
       }
       tft.fillRect(0, 50, 240, 270, white);
-      memoApp();
+      contApp();
       break;
   }
 }
@@ -661,18 +773,20 @@ void touchHandler() {
     drawText(appName[7], (appLocX[7] + appNamePlusX[7]), (appLocY[7] + 26), 1, white, appColor[7]);
     while (ts.touched()) {}
     drawText(appName[7], (appLocX[7] + appNamePlusX[7]), (appLocY[7] + 26), 1, black, appColor[7]);
-    appOnScreen = APP_RACE;
-    openApp(APP_RACE);
+    appOnScreen = APP_CALC;
+    openApp(APP_CALC);
   } else if (x >= appLocX[8] && y >= appLocY[8] && x <= (appLocX[8] + appSize) && y <= (appLocY[8] + appSize)) {
     drawText(appName[8], (appLocX[8] + appNamePlusX[8]), (appLocY[8] + 26), 1, white, appColor[8]);
     while (ts.touched()) {}
     drawText(appName[8], (appLocX[8] + appNamePlusX[8]), (appLocY[8] + 26), 1, black, appColor[8]);
-    appOnScreen = APP_MEMO;
-    openApp(APP_MEMO);
+    appOnScreen = APP_CONTACTS;
+    openApp(APP_CONTACTS);
   } else {
-    tft.invertDisplay(true);
-    while (ts.touched()) {}
-    tft.invertDisplay(false);
+    if (debug) {
+      tft.invertDisplay(true);
+      while (ts.touched()) {}
+      tft.invertDisplay(false);
+    }
   }
 }
 
@@ -682,17 +796,18 @@ void drawBattery() {
   tft.fillRect((batteryX + 2), (batteryY + 2), 11, 36, white);
   tft.drawFastHLine((batteryX + 5), (batteryY - 2), 5, black);
   tft.drawFastHLine((batteryX + 5), (batteryY - 1), 5, black);
-  if (getBattery() <= 10) {
+  battPercent = getBattery();
+  if (battPercent <= 10) {
     tft.fillRect((batteryX + 2), (batteryY + 36), 11, 2, red);
-  } else if (getBattery() <= 20) {
+  } else if (battPercent <= 20) {
     tft.fillRect((batteryX + 2), (batteryY + 30), 11, 8, yellow);
-  } else if (getBattery() <= 40) {
+  } else if (battPercent <= 40) {
     tft.fillRect((batteryX + 2), (batteryY + 22), 11, 16, green);
-  } else if (getBattery() <= 60) {
+  } else if (battPercent <= 60) {
     tft.fillRect((batteryX + 2), (batteryY + 14), 11, 24, green);
-  } else if (getBattery() <= 80) {
+  } else if (battPercent <= 80) {
     tft.fillRect((batteryX + 2), (batteryY + 6), 11, 32, green);
-  } else if (getBattery() <= 100) {
+  } else if (battPercent <= 100) {
     tft.fillRect((batteryX + 2), (batteryY + 2), 11, 36, green);
   }
 }
@@ -700,7 +815,7 @@ void drawBattery() {
 byte getBattery() {
   uint16_t bat;
   if (noFONA) {
-    bat = 0;
+    bat = random(0, 100);
   } else {
     fona.getBattPercent(&bat);
   }
@@ -730,23 +845,30 @@ void drawTime(uint16_t bgcolor) {
 void phoneApp() {
   draw(APP_PHONE);
   byte page = 0;
-  int pNumCount = 0;
   while (appExit == false) {
     if (millis() - updateTimer >= 20000) {
-      drawTime(red);
+      drawTime(appColor[0]);
       drawBattery();
       updateTimer = millis();
+    }
+    if (digitalRead(BTN_BACK) == 0 && page == 1) {
+      page = 0;
+      tft.fillRect(0, 50, 240, 270, white);
+      tft.fillRect(20, 70, 90, 50, green);
+      drawText("PICK UP", 25, 87, 2, white, green);
+      tft.fillRect(130, 70, 90, 50, red);
+      drawText("END", 157, 87, 2, white, red);
+      tft.fillRect(20, 140, 200, 80, lightgrey);
+      drawText("KEYPAD", 65, 168, 3, black, lightgrey);
+    }
+    if (digitalRead(BTN_HOME) == 0) {
+      appExit = true;
+      while (digitalRead(BTN_HOME) == LOW) {}
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
-      if (y <= 50) {
-        drawText("BACK", 5, 18, 2, black, red);
-        appExit = true;
-        while (ts.touched()) {}
-        drawText("BACK", 5, 18, 2, white, red);
-      }
       if (page == 0) {
         if (x >= 20 && y >= 70 && x <= 110 && y <= 120) {
           drawText("PICK UP", 25, 87, 2, black, green);
@@ -762,23 +884,25 @@ void phoneApp() {
             fona.hangUp();
           }
           drawText("END", 157, 87, 2, white, red);
-        } else if (x >= 20 && y >= 130 && x <= 220 && y <= 170) {
-          drawText("KEYPAD", 85, 142, 2, white, lightgrey);
+        } else if (x >= 20 && y >= 140 && x <= 220 && y <= 220) {
+          drawText("KEYPAD", 65, 168, 3, white, lightgrey);
           while (ts.touched()) {}
-          drawText("KEYPAD", 85, 142, 2, black, lightgrey);
+          drawText("KEYPAD", 65, 168, 3, black, lightgrey);
           page = 1;
           tft.fillRect(0, 50, 240, 270, white);
           tft.drawRect(10, 60, 220, 50, black);
           tft.drawRect(11, 61, 218, 48, black);
-          tft.fillRect(125, 120, 95, 30, green);
-          drawText("CALL", 140, 125, 3, white, green);
-          tft.fillRect(20, 120, 95, 30, red);
-          drawText("BACK", 35, 125, 3, white, red);
+          tft.fillRect(20, 120, 200, 30, green);
+          drawText("CALL", 90, 125, 3, white, green);
+          tft.fillRect(20, 155, 200, 30, lightgrey);
+          drawText("CLEAR", 80, 160, 3, black, lightgrey);
           draw(KEYPAD_NUMS);
           tft.setTextSize(3);
           tft.setTextColor(black, white);
-          tft.setCursor(25, 75);
+          tft.setCursor(17, 75);
           tft.print(givenPNumber);
+          tft.drawRect(10, 60, 220, 50, black);
+          tft.drawRect(11, 61, 218, 48, black);
         }
       } else {
         if (getKPPress() == 1) {
@@ -841,64 +965,69 @@ void phoneApp() {
             givenPNumber[pNumCount] = '+';
             pNumCount++;
           }
-        } else if (x >= 120 && y >= 120 && x <= 220 && y <= 150) {
-          drawText("CALL", 140, 125, 3, black, green);
+        } else if (x >= 20 && y >= 120 && x <= 220 && y <= 150) {
+          drawText("CALL", 90, 125, 3, black, green);
           while (ts.touched()) {}
           if (!noFONA) {
             fona.callPhone(givenPNumber);
           }
-          for (int i = 0; i < 9; i++) {
+          for (int i = 0; i < 14; i++) {
             givenPNumber[i] = ' ';
           }
           pNumCount = 0;
-          tft.setTextSize(3);
-          tft.setTextColor(black, white);
-          tft.setCursor(15, 75);
-          tft.print(givenPNumber);
-          drawText("CALL", 140, 125, 3, white, green);
-        } else if (x >= 20 && y >= 120 && x <= 115 && y <= 150) {
-          drawText("BACK", 35, 125, 3, black, red);
-          while (ts.touched()) {}
-          drawText("BACK", 35, 125, 3, white, red);
           page = 0;
           tft.fillRect(0, 50, 240, 270, white);
           tft.fillRect(20, 70, 90, 50, green);
           drawText("PICK UP", 25, 87, 2, white, green);
           tft.fillRect(130, 70, 90, 50, red);
           drawText("END", 157, 87, 2, white, red);
-          tft.fillRect(20, 130, 200, 40, lightgrey);
-          drawText("KEYPAD", 85, 142, 2, black, lightgrey);
+          tft.fillRect(20, 140, 200, 80, lightgrey);
+          drawText("KEYPAD", 65, 168, 3, black, lightgrey);
+        } else if (x >= 20 && y >= 155 && x <= 220 && y <= 185) {
+          drawText("CLEAR", 80, 160, 3, white, lightgrey);
+          while (ts.touched()) {}
+          drawText("CLEAR", 80, 160, 3, black, lightgrey);
+          for (int i = 0; i < 14; i++) {
+            givenPNumber[i] = ' ';
+          }
+          pNumCount = 0;
+          tft.setTextSize(3);
+          tft.setTextColor(black, white);
+          tft.setCursor(17, 75);
+          tft.print(givenPNumber);
+          tft.drawRect(10, 60, 220, 50, black);
+          tft.drawRect(11, 61, 218, 48, black);
         }
         if (y >= 190) {
           tft.setTextSize(3);
           tft.setTextColor(black, white);
-          tft.setCursor(25, 75);
+          tft.setCursor(17, 75);
           tft.print(givenPNumber);
+          tft.drawRect(10, 60, 220, 50, black);
+          tft.drawRect(11, 61, 218, 48, black);
         }
       }
     }
     while (ts.touched()) {}
   }
   appExit = false;
-  for (int i = 0; i < 9; i++) {
-    givenPNumber[i] = ' ';
-  }
-  pNumCount = 0;
   exitApp();
 }
 
 void smsApp() {
   draw(APP_SMS);
   byte page = SMS_SEND;
-  int pNumCount = 0;
   byte selectedField = NUM_FIELD;
   char charOnScreen = chars[charOnScreenNum];
-  char message[21] = {' '};
-  int messageIndex = 0;
   while (appExit == false) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[1]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1108,13 +1237,6 @@ void smsApp() {
     }
   }
   appExit = false;
-  for (int i = 0; i < 9; i++) {
-    givenPNumber[i] = ' ';
-  }
-  for (int i = 0; i < 15; i++) {
-    message[i] = ' ';
-  }
-  pNumCount = 0;
   exitApp();
 }
 
@@ -1184,6 +1306,11 @@ void setApp() {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
     }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[2]);
+      drawBattery();
+      updateTimer = millis();
+    }
     if (ts.touched()) {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
@@ -1209,12 +1336,15 @@ void setApp() {
         }
         if (!noFONA) {
           fona.setAllVolumes(volume * 10);
-          SD.remove("SET_VOL.txt");
-          SDfile = SD.open("SET_VOL.txt", FILE_WRITE);
-          SDfile.print(volume - 1);
-          Serial.print("Setting saved on SD: Volume = ");
-          Serial.println(volume);
-          SDfile.close();
+          fona.playToolkitTone(6, 1000);
+          if (!noSD) {
+            SD.remove("SET_VOL.txt");
+            SDfile = SD.open("SET_VOL.txt", FILE_WRITE);
+            SDfile.print(volume - 1);
+            Serial.print("Setting saved on SD: Volume = ");
+            Serial.println(volume);
+            SDfile.close();
+          }
         }
       } else if (x >= 20 && y >= 90 && x <= 220 && y <= 130) {
         while (ts.touched()) {
@@ -1236,12 +1366,38 @@ void setApp() {
           }
           backlight(bl);
         }
-        SD.remove("SET_BL.txt");
-        SDfile = SD.open("SET_BL.txt", FILE_WRITE);
-        SDfile.print(bl - 1);
-        Serial.print("Setting saved on SD: Backlight level = ");
-        Serial.println(bl);
-        SDfile.close();
+        if (!noSD) {
+          SD.remove("SET_BL.txt");
+          SDfile = SD.open("SET_BL.txt", FILE_WRITE);
+          SDfile.print(bl - 1);
+          Serial.print("Setting saved on SD: Backlight level = ");
+          Serial.println(bl);
+          SDfile.close();
+        }
+      } else if (x >= 30 && y >= 260 && x <= 120 && y <= 310) {
+        audio = FONA_EXTAUDIO;
+        fona.setAudio(audio);
+        fona.playToolkitTone(6, 1000);
+        if (!noSD) {
+          SD.remove("AUD_TYP.txt");
+          SDfile = SD.open("AUD_TYP.txt", FILE_WRITE);
+          SDfile.print(audio);
+          Serial.print("Setting saved on SD: Audio out = ");
+          Serial.println(audio);
+          SDfile.close();
+        }
+      } else if (x >= 120 && y >= 260 && x <= 210 && y <= 310) {
+        audio = FONA_HEADSETAUDIO;
+        fona.setAudio(audio);
+        fona.playToolkitTone(6, 1000);
+        if (!noSD) {
+          SD.remove("AUD_TYP.txt");
+          SDfile = SD.open("AUD_TYP.txt", FILE_WRITE);
+          SDfile.print(audio);
+          Serial.print("Setting saved on SD: Audio out = ");
+          Serial.println(audio);
+          SDfile.close();
+        }
       }
       while (ts.touched()) {}
     }
@@ -1374,13 +1530,16 @@ void exitApp() {
 }
 
 void lock() {
-  for (int i = bl; i >= 0; i--) {
-    backlight(i);
-    delay(40);
-  }
-  /*tft.setCursor(50, 50);
+  if (!debug) {
+    for (int i = bl; i >= 0; i--) {
+      backlight(i);
+      delay(40);
+    }
+  } else {
+    tft.setCursor(50, 50);
     tft.setTextSize(5);
-    tft.setTextColor(black, white);*/
+    tft.setTextColor(black, white);
+  }
   bool unlocked = false;
   while (!unlocked) {
     if (ts.touched()) {
@@ -1406,12 +1565,14 @@ void lock() {
         }
       }
     }
-    /*tft.print(getTouchPart());
-      tft.setCursor(50, 50);*/
+    if (debug) {
+      tft.print(getTouchPart());
+      tft.setCursor(50, 50);
+    }
   }
   for (int i = 0; i <= bl; i++) {
     backlight(i);
-    delay(10);
+    delay(20);
   }
   while (ts.touched()) {}
 }
@@ -1474,6 +1635,11 @@ void radioApp() {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[4]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1573,7 +1739,7 @@ void clockApp() {
   int yHour = 80;
   int xSec = 120;
   int ySec = 80;
-  float seconds = 0;
+  int seconds = 0;
   /*int timeBuff[3] = {' '};
     if (noFONA) {
     for (int i = 10; i < 15; i++) {
@@ -1582,16 +1748,16 @@ void clockApp() {
     } else {
     fona.getTime(RTCtime, 23);
     }*/
-  float minutes = 0;
+  int minutes = 0;
   //minutes = ((RTCtime[13] * 10) + RTCtime[14]);
-  float hours = 0;
+  int hours = 0;
   //hours = ((RTCtime[10] * 10) + RTCtime[11]);
   float mAngle = 0;
   float hAngle = 0;
   float sAngle = 0;
   long int timer = 0;
   const int cenX = 120;
-  const int cenY = 180;
+  const int cenY = 160;
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
@@ -1601,6 +1767,11 @@ void clockApp() {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[5]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (millis() - timer >= 1000) {
       timer = millis();
@@ -1612,29 +1783,48 @@ void clockApp() {
       mAngle = (PI * 2) / 60 * minutes;
       xMinute = cenX - (100 * sin(mAngle));
       yMinute = cenY + (100 * cos(mAngle));
-      yMinute = map(yMinute, 80, 280, 280, 80);
+      yMinute = map(yMinute, 60, 260, 260, 60);
       xMinute = map(xMinute, 20, 220, 220, 20);
 
       hAngle = (PI * 2) / 12 * hours;
       xHour = cenX - (70 * sin(hAngle));
       yHour = cenY + (70 * cos(hAngle));
-      yHour = map(yHour, 80, 280, 280, 80);
+      yHour = map(yHour, 60, 260, 260, 60);
       xHour = map(xHour, 20, 220, 220, 20);
 
       sAngle = (PI * 2) / 60 * seconds;
       xSec = cenX - (90 * sin(sAngle));
       ySec = cenY + (90 * cos(sAngle));
-      ySec = map(ySec, 80, 280, 280, 80);
+      ySec = map(ySec, 60, 260, 260, 60);
       xSec = map(xSec, 20, 220, 220, 20);
 
       tft.drawLine(cenX, cenY, xHour, yHour, white);
       tft.drawLine(cenX, cenY, xMinute, yMinute, white);
       tft.drawLine(cenX, cenY, xSec, ySec, white);
 
-      tft.drawLine(cenX, cenY, xHour, yHour, black);
       tft.drawLine(cenX, cenY, xMinute, yMinute, red);
       tft.drawLine(cenX, cenY, xSec, ySec, blue);
+      tft.drawLine(cenX, cenY, xHour, yHour, black);
       tft.fillCircle(cenX, cenY, 3, black);
+
+      tft.setTextColor(black, white);
+      tft.setTextSize(3);
+      tft.setCursor(50, 280);
+      if (hours < 10) {
+        tft.print("0");
+      }
+      tft.print(hours);
+      tft.print(":");
+      if (minutes < 10) {
+        tft.print("0");
+      }
+      tft.print(minutes);
+      tft.print(":");
+      if (seconds < 10) {
+        tft.print("0");
+      }
+      tft.print(seconds);
+
       seconds++;
       if (seconds > 59) {
         seconds = 0;
@@ -1661,6 +1851,11 @@ void paintApp() {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[6]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1695,13 +1890,17 @@ void paintApp() {
   exitApp();
 }
 
-void raceApp() {
-  // *Insert racing game here*
-  draw(APP_RACE);
+void calcApp() {
+  draw(APP_CALC);
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[7]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1713,12 +1912,17 @@ void raceApp() {
   exitApp();
 }
 
-void memoApp() {
-  draw(APP_MEMO);
+void contApp() {
+  draw(APP_CONTACTS);
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
       while (digitalRead(BTN_HOME) == LOW) {}
+    }
+    if (millis() - updateTimer >= 20000) {
+      drawTime(appColor[8]);
+      drawBattery();
+      updateTimer = millis();
     }
     if (ts.touched()) {
       tPoint = ts.getPoint();
@@ -1729,6 +1933,20 @@ void memoApp() {
   appExit = false;
   exitApp();
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
