@@ -5,6 +5,7 @@ Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.
 
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
+There are different versions of FatFone and FatOS (the operating system).
 
 
 # FatFone & FatOS 1
