@@ -5,10 +5,9 @@ Uses the [Adafruit 2.8" TFT Shield for Arduino w/ Capacitive Touch](https://www.
 
 FatFone is a simple mobile phone. It is called FatFone, because it is quite thick.
 
-There are different versions of FatFone.
 
 
-# FatOS 1
+# FatFone & FatOS 1
 
 Functions:
 - Phone calls (calling, answering)
@@ -24,7 +23,7 @@ Future implementations (I already know how to make these, but there's only a sma
 To make the about-button (in the settings) work correctly, the text it will write on the screen has to be in the Arduino's built-in (or external, but it will require more physical space) EEPROM. This will free up the Arduino's flash memory a bit (or more than a bit (binary-digit)).
 
 
-# FatOS 2
+# FatFone & FatOS 2
 
 Runs on FatFone 1 or FatFone 1M (same with FatOS 1). 
 
@@ -36,7 +35,7 @@ Functions:
 Future implementations:
 - Settings app
 
-# FatOS 2M & 2MB
+# FatFone & FatOS 2M & 2MB
 
 Runs on FatFone 2M and 2MB
 
@@ -51,9 +50,11 @@ Hardware:
 - Two pushbuttons and jumper wires
 
 
-# FatOS 3 (FatFone B)
+# FatFone & FatOS 3
 
-The newest FatOS. Hardware is still under heavy developement, and is not listed below.
+The newest FatOS/FatFone. Hardware is still under heavy developement, and is not listed below.
+
+This version will not be using an Arduino board and shields. I will instead make a PCB and buy non-shield versions of the shields that I am currently using. I wil also use a spare ATMega chip, like the ATMega328.
 
 
 The logo:
