@@ -1,4 +1,4 @@
-// Sketch needs an AVR board with over 32KB of flash!
+// Sketch needs an AVR Arduino board with over 32KB of flash!
 
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
@@ -138,7 +138,7 @@ int calcIndex = 0;
 long netTimeout = 0;
 long lockTimer = 0;
 int lockCount = 0;
-#define lockCycles 2
+#define lockCycles 1
 
 void setup() {
   ts.begin(40);
@@ -315,6 +315,7 @@ void loop() {
     if (lockCount >= lockCycles) {
       lockCount = 0;
       lock();
+      //demo();
       lockTimer = millis();
     }
     lockTimer = millis();
@@ -929,8 +930,8 @@ void phoneApp() {
           tft.fillRect(0, 50, 240, 270, white);
           tft.drawRect(10, 60, 220, 50, black);
           tft.drawRect(11, 61, 218, 48, black);
-          tft.fillRect(20, 120, 200, 30, green);
-          drawText("CALL", 90, 125, 3, white, green);
+          tft.fillRect(20, 115, 200, 30, green);
+          drawText("CALL", 90, 120, 3, white, green);
           tft.fillRect(20, 155, 200, 30, lightgrey);
           drawText("CLEAR", 80, 160, 3, black, lightgrey);
           draw(KEYPAD_NUMS);
@@ -1002,8 +1003,8 @@ void phoneApp() {
             givenPNumber[pNumCount] = '+';
             pNumCount++;
           }
-        } else if (x >= 20 && y >= 120 && x <= 220 && y <= 150) {
-          drawText("CALL", 90, 125, 3, black, green);
+        } else if (x >= 20 && y >= 115 && x <= 220 && y <= 145) {
+          drawText("CALL", 90, 120, 3, black, green);
           while (ts.touched()) {}
           if (!noFONA) {
             fona.callPhone(givenPNumber);
@@ -1048,6 +1049,9 @@ void phoneApp() {
     while (ts.touched()) {}
   }
   appExit = false;
+  for (int i = 0; i < 9; i++) {
+    givenPNumber[i] = ' ';
+  }
   exitApp();
 }
 
@@ -1210,6 +1214,7 @@ void smsApp() {
             tft.setTextColor(black, white);
             tft.setCursor(15, 105);
             tft.print(givenPNumber);
+            tft.drawRect(10, 95, 220, 40, black);
           }
         } else {
           if (x >= 20 && y >= 230 && x <= 80 && y <= 320) {
@@ -1274,6 +1279,12 @@ void smsApp() {
     }
   }
   appExit = false;
+  for (int i = 0; i < 9; i++) {
+    givenPNumber[i] = ' ';
+  }
+  for (int i = 0; i < 20; i++) {
+    message[i] = ' ';
+  }
   exitApp();
 }
 
@@ -1779,18 +1790,14 @@ void clockApp() {
   int xSec = 120;
   int ySec = 80;
   int seconds = 0;
-  /*int timeBuff[3] = {' '};
-    if (noFONA) {
-    for (int i = 10; i < 15; i++) {
-      RTCtime[i] = errorFONA[i - 10];
-    }
-    } else {
-    fona.getTime(RTCtime, 23);
-    }*/
   int minutes = 0;
-  //minutes = ((RTCtime[13] * 10) + RTCtime[14]);
   int hours = 0;
-  //hours = ((RTCtime[10] * 10) + RTCtime[11]);
+  if (!noFONA) {
+    fona.getTime(RTCtime, 23);
+    seconds = ((RTCtime[16] - '0') * 10) + (RTCtime[17] - '0');
+    minutes = ((RTCtime[13] - '0') * 10) + (RTCtime[14] - '0');
+    hours = ((RTCtime[10] - '0') * 10) + (RTCtime[11] - '0');
+  }
   float mAngle = 0;
   float hAngle = 0;
   float sAngle = 0;
@@ -1868,6 +1875,7 @@ void clockApp() {
       if (seconds > 59) {
         seconds = 0;
         minutes++;
+        updateTimer = 0;
       }
       if (minutes > 59) {
         minutes = 0;
@@ -2119,6 +2127,28 @@ void contApp() {
     }
   }
   appExit = false;
+  exitApp();
+}
+
+void demo() {
+  tft.setTextSize(3);
+  tft.setTextColor(white);
+  tft.setCursor(0, 10);
+  tft.fillScreen(navy);
+  tft.fillRoundRect(10, 10, 220, 135, 10, cyan);
+  tft.setTextSize(12);
+  tft.setCursor(50, 30);
+  tft.setTextColor(black);
+  tft.print('F');
+  tft.setTextSize(5);
+  tft.print(F("at"));
+  tft.setCursor(108, 78);
+  tft.print(F("ONE"));
+  tft.setTextSize(2);
+  tft.setTextColor(white, navy);
+  tft.setCursor(15, 210);
+  tft.print(F("by  NAME  HERE"));
+  while (!ts.touched()) {}
   exitApp();
 }
 
