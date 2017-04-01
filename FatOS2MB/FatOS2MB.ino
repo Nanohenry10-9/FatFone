@@ -136,6 +136,9 @@ char calcOs[10] = {' '};
 int calcIndex = 0;
 
 long netTimeout = 0;
+long lockTimer = 0;
+int lockCount = 0;
+#define lockCycles 2
 
 void setup() {
   ts.begin(40);
@@ -293,6 +296,7 @@ void setup() {
   hasStarted = true;
 
   exitApp(); // Isn't actually exiting app, here just for the animation
+  lockTimer = millis();
 }
 
 void loop() {
@@ -302,7 +306,18 @@ void loop() {
     updateTimer = millis();
   }
   if (ts.touched()) {
+    lockTimer = millis();
+    lockCount = 0;
     touchHandler();
+  }
+  if (millis() - lockTimer >= 20000) {
+    lockCount++;
+    if (lockCount >= lockCycles) {
+      lockCount = 0;
+      lock();
+      lockTimer = millis();
+    }
+    lockTimer = millis();
   }
   if (digitalRead(BTN_BACK) == 0 && digitalRead(BTN_HOME) == 0) {
     btnTimer = millis();
@@ -1549,6 +1564,8 @@ void exitApp() {
   }
   draw(MENU);
   appOnScreen = MENU;
+  lockCount = 0;
+  lockTimer = millis();
 }
 
 void lock() {
@@ -2016,6 +2033,10 @@ void calcApp() {
       tft.drawRect(20, 60, 200, 40, black);
     }
     while (ts.touched()) {}
+  }
+  for (int i = 0; i < 10; i++) {
+    calcNs[i] = 0;
+    calcOs[i] = ' ';
   }
   appExit = false;
   exitApp();
