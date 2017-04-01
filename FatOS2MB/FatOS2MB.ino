@@ -16,7 +16,7 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 #define FONA_RX 2
 #define FONA_TX 12
-#define FONA_RST 4
+#define FONA_RST 0
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
@@ -49,6 +49,11 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 
 #define KEYPAD_CHARS  -2
 #define KEYPAD_NUMS   -1
+
+#define CALC_PLUS 0
+#define CALC_MINUS 1
+#define CALC_MULT 2
+#define CALC_DIV 3
 
 #define timeX 74
 #define timeY 12
@@ -125,8 +130,12 @@ int netState = 0;
 
 File SDfile;
 
-float calcResult = 0;
-char* calcString[13] = {" "};
+long int calcResult = 0;
+int calcNs[10] = {0};
+char calcOs[10] = {' '};
+int calcIndex = 0;
+
+long netTimeout = 0;
 
 void setup() {
   ts.begin(40);
@@ -240,6 +249,10 @@ void setup() {
     tft.setCursor(85, 200);
     tft.setTextColor(white, navy);
     tft.setTextSize(3);
+    Serial.print(F("Connecting to FONA with (RX, TX): "));
+    Serial.print(FONA_RX);
+    Serial.print(F(", "));
+    Serial.println(FONA_TX);
     Serial.println(F("Starting FONA 1/2..."));
     fonaSerial->begin(4800);
     tft.print('.');
@@ -258,12 +271,21 @@ void setup() {
     tft.print(F("."));
     fona.setPWM(0);
     netState = fona.getNetworkStatus();
-    if (netState == 2) {
-      while (netState == 2) {}
-    } else if (netState == 1) {
+    if (netState == 1) {
       drawText("NETWORK FOUND", 45, 250, 2, white, navy);
     } else {
-      drawText("NO NETWORK", 63, 250, 2, red, navy);
+      drawText("FINDING NETWORK", 30, 250, 2, orange, navy);
+      netTimeout = millis();
+      while (netState != 1 && millis() - netTimeout < 10000) {
+        netState = fona.getNetworkStatus();
+      }
+      if (netState != 1) {
+        tft.fillRect(20, 230, 220, 50, navy);
+        drawText("NO NETWORK", 60, 250, 2, red, navy);
+      } else if (netState == 1) {
+        tft.fillRect(20, 230, 220, 50, navy);
+        drawText("NETWORK FOUND", 45, 250, 2, white, navy);
+      }
     }
     delay(1000);
   }
@@ -455,15 +477,15 @@ void draw(int a) {
       tft.fillRect(20, 160, 200, 40, orange);
       tft.fillRect(20, 210, 200, 40, orange);
       tft.fillRect(20, 260, 200, 40, orange);
-      
+
       tft.drawFastVLine(70, 110, 40, black);
       tft.drawFastVLine(120, 110, 40, black);
       tft.drawFastVLine(170, 110, 40, black);
-      
+
       tft.drawFastVLine(70, 160, 40, black);
       tft.drawFastVLine(120, 160, 40, black);
       tft.drawFastVLine(170, 160, 40, black);
-      
+
       tft.drawFastVLine(70, 210, 40, black);
       tft.drawFastVLine(120, 210, 40, black);
       tft.drawFastVLine(170, 210, 40, black);
@@ -482,7 +504,7 @@ void draw(int a) {
       tft.print(3);
       tft.setCursor(185, 120);
       tft.print(4);
-      
+
       tft.setCursor(35, 170);
       tft.print(5);
       tft.setCursor(85, 170);
@@ -491,7 +513,7 @@ void draw(int a) {
       tft.print(7);
       tft.setCursor(185, 170);
       tft.print(8);
-      
+
       tft.setCursor(35, 220);
       tft.print(9);
       tft.setCursor(85, 220);
@@ -500,7 +522,7 @@ void draw(int a) {
       tft.print('C');
       tft.setCursor(185, 220);
       tft.print('=');
-      
+
       tft.setCursor(35, 270);
       tft.print('+');
       tft.setCursor(85, 270);
@@ -1906,10 +1928,155 @@ void calcApp() {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
+      if (x >= 20 && y >= 110 && x <= 200 && y <= 300) { // If keypad pressed
+        if (y <= 155) { // First row
+
+          if (x <= 70) { // First column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 1;
+          } else if (x >= 70 && x <= 120) { // Second column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 2;
+          } else if (x >= 120 && x <= 170) { // Third column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 3;
+          } else if (x >= 170) { // Fouth column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 4;
+          }
+
+        } else if (y >= 155 && y <= 205) { // Second row
+
+          if (x <= 70) { // First column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 5;
+          } else if (x >= 70 && x <= 120) { // Second column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 6;
+          } else if (x >= 120 && x <= 170) { // Third column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 7;
+          } else if (x >= 170) { // Fouth column
+            calcNs[calcIndex] *= 10;
+            calcNs[calcIndex] += 8;
+          }
+
+        }
+      }
+      if (y >= 205 && y <= 255) { // Third row
+
+        if (x <= 70) { // First column
+          calcNs[calcIndex] *= 10;
+          calcNs[calcIndex] += 9;
+        } else if (x >= 70 && x <= 120) { // Second column
+          calcNs[calcIndex] *= 10;
+        } else if (x >= 120 && x <= 170) { // Third column
+          calcNs[calcIndex] /= 10;
+        } else if (x >= 170) { // Fouth column
+          calcResult = calculate(calcNs, calcOs);
+          tft.setTextColor(black, white);
+          tft.setTextSize(2);
+          tft.setCursor(30, 70);
+          int i = 0;
+          while (calcNs[i] != 0) {
+            tft.print(calcNs[i]);
+            tft.print(calcOs[i]);
+            i++;
+          }
+          tft.print("=");
+          tft.print(calcResult);
+          tft.print("              ");
+          tft.drawRect(20, 60, 200, 40, black);
+          delay(2000);
+        }
+
+      } else if (y >= 255) { // Fourth row
+
+        if (x <= 70) { // First column
+          calcOs[calcIndex] = '+';
+          calcIndex++;
+        } else if (x >= 70 && x <= 120) { // Second column
+          calcOs[calcIndex] = '-';
+          calcIndex++;
+        } else if (x >= 120 && x <= 170) { // Third column
+          calcOs[calcIndex] = '*';
+          calcIndex++;
+        } else if (x >= 170) { // Fouth column
+          calcOs[calcIndex] = '/';
+          calcIndex++;
+        }
+
+      }
+
+      tft.setTextColor(black, white);
+      tft.setTextSize(2);
+      tft.setCursor(30, 70);
+      tft.print(calcNs[calcIndex]);
+      tft.print("              ");
+      tft.drawRect(20, 60, 200, 40, black);
     }
+    while (ts.touched()) {}
   }
   appExit = false;
   exitApp();
+}
+
+int calculate(int input1[], char input2[]) {
+  int result = 0;
+  Serial.print(F("Calculating with "));
+  for (int i = 0; i < sizeof(input1) * sizeof(int); i++) {
+    Serial.print(input1[i]);
+    Serial.print(F(", "));
+  }
+  Serial.print(F(" as numbers and "));
+  Serial.print(input2);
+  Serial.println(F(" as operators... "));
+  int cNumBuff[10] = {input1[0]};
+  int opesLeft = sizeof(input2) * sizeof(char);
+  Serial.println(opesLeft);
+  for (int i = 0; i < opesLeft; i++) {
+    switch (input2[i]) {
+      case '+':
+        if (i != 0) {
+          cNumBuff[i] = cNumBuff[i - 1] + input1[i + 1];
+        } else {
+          cNumBuff[0] = input1[0] + input1[1];
+        }
+        Serial.println("Add");
+        break;
+      case '-':
+        if (i != 0) {
+          cNumBuff[i] = cNumBuff[i - 1] - input1[i + 1];
+        } else {
+          cNumBuff[0] = input1[0] - input1[1];
+        }
+        Serial.println("Substract");
+        break;
+      case '*':
+        if (i != 0) {
+          cNumBuff[i] = cNumBuff[i - 1] * input1[i + 1];
+        } else {
+          cNumBuff[0] = input1[0] * input1[1];
+        }
+        Serial.println("Multiply");
+        break;
+      case '/':
+        if (i != 0) {
+          cNumBuff[i] = cNumBuff[i - 1] / input1[i + 1];
+        } else {
+          cNumBuff[0] = input1[0] / input1[1];
+        }
+        Serial.println("Divide");
+        break;
+    }
+  }
+  for (int i = 0; i < 10; i++) {
+    if (cNumBuff[i] != 0) {
+      result = cNumBuff[i];
+    }
+  }
+  Serial.print(result);
+  return result;
 }
 
 void contApp() {
@@ -1933,9 +2100,6 @@ void contApp() {
   appExit = false;
   exitApp();
 }
-
-
-
 
 
 
