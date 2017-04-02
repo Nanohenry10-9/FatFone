@@ -133,9 +133,9 @@ File SDfile;
 long netTimeout = 0;
 long lockTimer = 0;
 int lockCount = 0;
-int lockCycles = 1;
+int lockCycles = 12;
 
-bool doDemo = true;
+bool doDemo = false;
 
 void setup() {
   ts.begin(40);
