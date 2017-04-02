@@ -130,19 +130,16 @@ int netState = 0;
 
 File SDfile;
 
-long int calcResult = 0;
-int calcNs[10] = {0};
-char calcOs[10] = {' '};
-int calcIndex = 0;
-
 long netTimeout = 0;
 long lockTimer = 0;
 int lockCount = 0;
-#define lockCycles 1
+int lockCycles = 1;
+
+bool doDemo = true;
 
 void setup() {
   ts.begin(40);
-  Serial.begin(9600);
+  Serial.begin(115200);
   pinMode(TFT_BL, OUTPUT);
   digitalWrite(TFT_BL, LOW);
   pinMode(BTN_HOME, INPUT_PULLUP);
@@ -310,12 +307,15 @@ void loop() {
     lockCount = 0;
     touchHandler();
   }
-  if (millis() - lockTimer >= 20000) {
+  if (millis() - lockTimer >= 5000) {
     lockCount++;
     if (lockCount >= lockCycles) {
       lockCount = 0;
-      lock();
-      //demo();
+      if (doDemo) {
+        demo();
+      } else {
+        lock();
+      }
       lockTimer = millis();
     }
     lockTimer = millis();
@@ -1894,6 +1894,8 @@ void paintApp() {
   draw(APP_PAINT);
   uint16_t selColor = red;
   int brushWidth = 3;
+  int oldX = 0;
+  int oldY = 50;
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
@@ -1909,7 +1911,9 @@ void paintApp() {
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
       if (y >= 50 && y <= (280 - brushWidth)) {
-        tft.fillCircle(x, y, brushWidth, selColor);
+        tft.drawLine(oldX, oldY, x, y, selColor);
+        oldX = x;
+        oldY = y;
       }
       if (y >= 280) {
         if (x <= 43 && y <= 315) {
@@ -1939,6 +1943,10 @@ void paintApp() {
 
 void calcApp() {
   draw(APP_CALC);
+  long int calcResult = 0;
+  int calcNs[10] = {0};
+  char calcOs[10] = {' '};
+  int calcIndex = 0;
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
@@ -2131,24 +2139,100 @@ void contApp() {
 }
 
 void demo() {
-  tft.setTextSize(3);
-  tft.setTextColor(white);
-  tft.setCursor(0, 10);
-  tft.fillScreen(navy);
-  tft.fillRoundRect(10, 10, 220, 135, 10, cyan);
-  tft.setTextSize(12);
-  tft.setCursor(50, 30);
-  tft.setTextColor(black);
-  tft.print('F');
-  tft.setTextSize(5);
-  tft.print(F("at"));
-  tft.setCursor(108, 78);
-  tft.print(F("ONE"));
-  tft.setTextSize(2);
-  tft.setTextColor(white, navy);
-  tft.setCursor(15, 210);
-  tft.print(F("by  NAME  HERE"));
-  while (!ts.touched()) {}
+  int oldDemo = 4;
+  int demoNumber = 0;
+  long nextTimer = 0;
+  Serial.println(F("Play demo? [y/n]"));
+  while (!Serial.available() && !ts.touched()) {}
+  if (!ts.touched() && Serial.read() == 'y') {
+    Serial.println(F("Demo playing..."));
+    while (!ts.touched()) {
+      for (int i = bl; i >= 0; i--) {
+        backlight(i);
+        delay(15);
+      }
+      do {
+        demoNumber = random(0, 3);
+      } while (demoNumber == oldDemo);
+      oldDemo = demoNumber;
+      switch (demoNumber) {
+        case 0:
+          tft.setTextSize(3);
+          tft.setTextColor(white);
+          tft.setCursor(0, 10);
+          tft.fillScreen(navy);
+          tft.fillRoundRect(10, 100, 220, 135, 10, cyan);
+          tft.setTextSize(12);
+          tft.setCursor(50, 120);
+          tft.setTextColor(black);
+          tft.print('F');
+          tft.setTextSize(5);
+          tft.print(F("at"));
+          tft.setCursor(108, 168);
+          tft.print(F("ONE"));
+          for (int i = 0; i < bl; i++) {
+            backlight(i);
+            delay(15);
+          }
+          nextTimer = millis();
+          while (millis() - nextTimer <= 5000 && !ts.touched());
+          break;
+        case 1:
+          tft.fillScreen(navy);
+          drawText("Hello there!", 20, 40, 3, white, navy);
+          drawText("This is FatFone,", 10, 80, 2, white, navy);
+          drawText("an open source", 10, 120, 2, white, navy);
+          drawText("modular DIY", 20, 160, 3, white, navy);
+          drawText("mobile phone.", 10, 200, 2, white, navy);
+          for (int i = 0; i < bl; i++) {
+            backlight(i);
+            delay(15);
+          }
+          nextTimer = millis();
+          while (millis() - nextTimer <= 5000 && !ts.touched());
+          break;
+        case 2:
+          int demoX = 0;
+          int demoY = 0;
+          bool ballDirX = 1;
+          bool ballDirY = 1;
+          tft.fillScreen(random(0x0000, 0xFFFF));
+          for (int i = 0; i < bl; i++) {
+            backlight(i);
+            delay(15);
+          }
+          nextTimer = millis();
+          while (millis() - nextTimer <= 10000 && !ts.touched()) {
+            tft.fillRect(demoX, demoY, 10, 10, random(0x0000, 0xFFFF));
+            //delay(1);
+            tft.fillRect(demoX, demoY, 10, 10, random(0x0000, 0xFFFF));
+
+            if (demoX <= -5) {
+              ballDirX = 1;
+            } else if (demoX >= 235) {
+              ballDirX = 0;
+            }
+            if (demoY <= -5) {
+              ballDirY = 1;
+            } else if (demoY >= 315) {
+              ballDirY = 0;
+            }
+
+            if (ballDirX) {
+              demoX += 4;
+            } else {
+              demoX -= 4;
+            }
+            if (ballDirY) {
+              demoY += 4;
+            } else {
+              demoY -= 4;
+            }
+          }
+          break;
+      }
+    }
+  }
   exitApp();
 }
 
