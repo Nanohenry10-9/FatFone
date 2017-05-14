@@ -172,65 +172,21 @@ void setup() {
     SDfile = SD.open("AUD_TYP.txt");
     audio = SDfile.read();
     SDfile.close();
-    if (audio == 48) {
-      audio = 0;
-    } else {
-      audio = 1;
-    }
+    audio = audio - '0';
     Serial.print(audio);
     Serial.print(F(", vol: "));
 
     SDfile = SD.open("SET_VOL.txt");
     volume = SDfile.read();
     SDfile.close();
-    if (volume == 48) {
-      volume = 1;
-    } else if (volume == 49) {
-      volume = 2;
-    } else if (volume == 50) {
-      volume = 3;
-    } else if (volume == 51) {
-      volume = 4;
-    } else if (volume == 52) {
-      volume = 5;
-    } else if (volume == 53) {
-      volume = 6;
-    } else if (volume == 54) {
-      volume = 7;
-    } else if (volume == 55) {
-      volume = 8;
-    } else if (volume == 56) {
-      volume = 9;
-    } else if (volume == 57) {
-      volume = 10;
-    }
+    volume = volume - '0';
     Serial.print(volume);
     Serial.print(F(", bl: "));
 
     SDfile = SD.open("SET_BL.txt");
     bl = SDfile.read();
     SDfile.close();
-    if (bl == 48) {
-      bl = 1;
-    } else if (bl == 49) {
-      bl = 2;
-    } else if (bl == 50) {
-      bl = 3;
-    } else if (bl == 51) {
-      bl = 4;
-    } else if (bl == 52) {
-      bl = 5;
-    } else if (bl == 53) {
-      bl = 6;
-    } else if (bl == 54) {
-      bl = 7;
-    } else if (bl == 55) {
-      bl = 8;
-    } else if (bl == 56) {
-      bl = 9;
-    } else if (bl == 57) {
-      bl = 10;
-    }
+    bl = bl - '0';
     Serial.println(bl);
 
   } else {
@@ -1388,7 +1344,7 @@ void setApp() {
           if (!noSD) {
             SD.remove("SET_VOL.txt");
             SDfile = SD.open("SET_VOL.txt", FILE_WRITE);
-            SDfile.print(volume - 1);
+            SDfile.print(volume);
             Serial.print("Setting saved on SD: Volume = ");
             Serial.println(volume);
             SDfile.close();
@@ -1417,7 +1373,7 @@ void setApp() {
         if (!noSD) {
           SD.remove("SET_BL.txt");
           SDfile = SD.open("SET_BL.txt", FILE_WRITE);
-          SDfile.print(bl - 1);
+          SDfile.print(bl);
           Serial.print("Setting saved on SD: Backlight level = ");
           Serial.println(bl);
           SDfile.close();
@@ -1944,9 +1900,17 @@ void paintApp() {
 void calcApp() {
   draw(APP_CALC);
   long int calcResult = 0;
-  int calcNs[10] = {0};
-  char calcOs[10] = {' '};
+  int calcNs[10] = {0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+  char calcOs[10] = {' ', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
   int calcIndex = 0;
+  Serial.print(F("calcResult: "));
+  Serial.print(calcResult);
+  Serial.print(F(", calcNS[0]: "));
+  Serial.print(calcNs[0]);
+  Serial.print(F(", calcOs[0]: "));
+  Serial.print(calcOs[0]);
+  Serial.print(F(", calcIndex: "));
+  Serial.println(calcIndex);
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
@@ -2004,7 +1968,20 @@ void calcApp() {
         } else if (x >= 70 && x <= 120) { // Second column
           calcNs[calcIndex] *= 10;
         } else if (x >= 120 && x <= 170) { // Third column
-          calcNs[calcIndex] /= 10;
+          if (calcNs[calcIndex] != 0) {
+            Serial.println(F("Current num reset"));
+            calcNs[calcIndex] /= 10;
+          } else {
+            Serial.println(F("All reset"));
+            calcNs[0] = 0;
+            calcOs[0] = 0;
+            calcIndex = 0;
+            calcResult = 0;
+            for (int i = 1; i < 10; i++) {
+              calcNs[i] = NULL;
+              calcOs[i] = '\0';
+            }
+          }
         } else if (x >= 170) { // Fouth column
           calcResult = calculate(calcNs, calcOs);
           tft.setTextColor(black, white);
@@ -2058,19 +2035,28 @@ void calcApp() {
   exitApp();
 }
 
+int lengthof(char input[]) {
+  for (int i = 0; i < 10; i++) {
+    if (input[i] == '\0') {
+      return i;
+    }
+  }
+}
+
 int calculate(int input1[], char input2[]) {
   int result = 0;
   Serial.print(F("Calculating with "));
-  for (int i = 0; i < sizeof(input1) * sizeof(int); i++) {
+  for (int i = 0; i < lengthof(input2) + 1; i++) {
     Serial.print(input1[i]);
     Serial.print(F(", "));
   }
+  int opesLeft = lengthof(input2);
   Serial.print(F(" as numbers and "));
   Serial.print(input2);
-  Serial.println(F(" as operators... "));
+  Serial.print(F(" (total: "));
+  Serial.print(opesLeft);
+  Serial.println(F(") as operators... "));
   int cNumBuff[10] = {input1[0]};
-  int opesLeft = sizeof(input2) * sizeof(char);
-  Serial.println(opesLeft);
   for (int i = 0; i < opesLeft; i++) {
     switch (input2[i]) {
       case '+':
@@ -2112,12 +2098,15 @@ int calculate(int input1[], char input2[]) {
       result = cNumBuff[i];
     }
   }
-  Serial.print(result);
+  Serial.print(F("Result was "));
+  Serial.println(result);
   return result;
 }
 
 void contApp() {
   draw(APP_CONTACTS);
+  char contName[5];
+  char contNum[5];
   while (!appExit) {
     if (digitalRead(BTN_HOME) == LOW) {
       appExit = true;
@@ -2132,6 +2121,37 @@ void contApp() {
       tPoint = ts.getPoint();
       x = map(tPoint.x, 0, 240, 240, 0);
       y = map(tPoint.y, 0, 320, 320, 0);
+    }
+    if (!noSD) {
+      SDfile = SD.open("CON1NA");
+      int i = 0;
+      while (SDfile.available()) {
+        contName[i] = SDfile.read();
+        i++;
+      }
+      SDfile.close();
+
+      SDfile = SD.open("CON1NU");
+      i = 0;
+      while (SDfile.available()) {
+        contNum[i] = SDfile.read();
+        i++;
+      }
+      SDfile.close();
+
+      Serial.print(F("Contact name: '"));
+      Serial.print(contName);
+      Serial.print(F("', contact number: "));
+      Serial.println(contNum);
+
+      tft.setCursor(0, 70);
+      tft.setTextSize(2);
+      tft.setTextColor(black, white);
+      tft.println(F("Contact name: '"));
+      tft.println(contName);
+      tft.println(F("', contact number: "));
+      tft.println(contNum);
+      while (1);
     }
   }
   appExit = false;
