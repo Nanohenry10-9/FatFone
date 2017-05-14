@@ -2,7 +2,7 @@
 
 FatFone is an open source modular DIY Arduino-based mobile phone.
 
-All the parts can be asily detached and chamged, so if a part breaks or gets technically outdated it can be easily fixed.
+All the parts can be easily detached and changed, so if a part breaks or gets technically outdated it can be easily fixed.
 
 It is built from three main parts:
 - A GSM module, for that I am currently using an Adafruit FONA 800

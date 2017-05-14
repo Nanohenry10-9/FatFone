@@ -244,6 +244,12 @@ void draw(byte screen, bool doAnim) {
       tft.setTextColor(darkgreen);
       tft.setCursor(getTextCenter("CALL", NUMPAD_W + 50, 3), getTextCenter(162, 3));
       tft.print("CALL");
+      tft.setTextColor(maroon);
+      tft.setCursor(getTextCenter("RMV", NUMPAD_W + 50, 3), getTextCenter(225, 3));
+      tft.print("RMV");
+      tft.setTextColor(darkgrey);
+      tft.setCursor(getTextCenter("CLEAR", NUMPAD_W + 50, 3), getTextCenter(289, 3));
+      tft.print("CLEAR");
       break;
     case SCREEN_SMS1:
       openApp = SCREEN_SMS1;
@@ -299,7 +305,7 @@ int getTextCenter(char text[], int x, int font) {
 }
 
 int getTextCenter(int y, int font) {
-  return y - 7 * font;
+  return y - 3.5 * font;
 }
 
 void drawTRect(int x, int y, int w, int h, int color, int t) {
