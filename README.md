@@ -51,9 +51,9 @@ Functions:
 Future implementations:
 - Settings app
 
-### FatFone & FatOS 2M & 2MB
+### FatFone & FatOS 2M, 2MB and 2.1MB
 
-Runs on FatFone 2M and 2MB
+OS ver. 2M runs on FatFone 2M, and ver. 2MB on FatFone 2MB
 
 This is an updated version of FatOS 2 with more flash usage and two extenal buttons (only FatFone & FatOS 2MB) (home and back, pins 18 and 19 in that order).
 
@@ -64,6 +64,10 @@ Hardware:
 - Arduino compatible Adafruit FONA 800 shield and a loudspeaker, mic and other required hardware (described at the top)
 - Adafruit 2.8" TFT shield for Arduino w/ Capacitive Touch
 - Two pushbuttons and jumper wires
+
+##### FatOS 2.1MB
+
+The currently developed OS version. Under heavy development.
 
 
 ### FatFone & FatOS 3
