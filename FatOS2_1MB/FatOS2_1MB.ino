@@ -14,7 +14,8 @@ Adafruit_ILI9341 tft = Adafruit_ILI9341(TFT_CS, TFT_DC);
 
 #define FONA_RX 2
 #define FONA_TX 12
-#define FONA_RST 0
+#define FONA_RST 4
+#define FONA_RI 3
 SoftwareSerial fonaSS = SoftwareSerial(FONA_TX, FONA_RX);
 SoftwareSerial *fonaSerial = &fonaSS;
 Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
@@ -93,10 +94,17 @@ uint16_t batt = 100;
 long updateTimer = 0;
 
 char phoneNumber[23] = {' '};
+char incNumber[23] = {' '};
 int phoneNumberIndex = 0;
 
 int numpadX = 0;
 int numpadY = 0;
+
+char psword[] = {"1234"};
+char inputpw[] = {"    "};
+int inputpwindex = 0;
+
+char* settings[4] = {"Battery", "Screen", "Sounds", "Phone"};
 
 void setup() {
   Serial.begin(9600);
@@ -110,7 +118,7 @@ void setup() {
   ts.begin();
   tft.println(F("Done"));
   tft.print(F("Initializing SD library... "));
-  SD.begin(4);
+  SD.begin(SD_CS);
   tft.println(F("Done"));
   tft.print(F("Starting FONA [1/2]... "));
   fonaSerial->begin(4800);
@@ -124,7 +132,7 @@ void setup() {
   fona.setPWM(0);
   tft.println(F("Done"));
   tft.print(F("Starting graphical UI..."));
-  draw(SCREEN_MENU, 0);
+  draw(SCREEN_LOCK, 0);
   //tone(45, 600, 30);
   //delay(40);
   //tone(45, 600, 200);
@@ -136,19 +144,32 @@ void loop() {
   }
   if (millis() - updateTimer >= 10000) {
     appRoutine(openApp);
+    Serial.println("Update time!");
     updateTimer = millis();
   }
   if (homeBtn() && openApp != SCREEN_MENU && openApp != SCREEN_LOCK) {
     draw(SCREEN_MENU, true);
   }
+  if (fona.incomingCallNumber(incNumber) || !digitalRead(FONA_RI)) {
+    Serial.println("Incoming call");
+    callFrom();
+  }
 }
 
 void touchHandler(byte screen) {
-  int scrolled = 0;
   tX = getX();
   tY = getY();
+  Serial.print("TS touched [X, Y]: ");
+  Serial.print(tX);
+  Serial.print(", ");
+  Serial.println(tY);
   switch (screen) {
     case SCREEN_HOME:
+      if (tX >= 30 && tX <= 210 && tY >= 190 && tY <= 290) {
+        drawButton(30, 190, 180, 100, "Open Menu", 3, darkgrey, lightgrey, true, false);
+        while (ts.touched());
+        draw(SCREEN_MENU, true);
+      }
       break;
     case SCREEN_MENU:
       if (tX < 120) {
@@ -190,14 +211,95 @@ void touchHandler(byte screen) {
       }
       break;
     case SCREEN_LOCK:
-      break;
-    case SCREEN_PHONE:
-      tft.setTextSize(3);
-      if (tX >= NUMPAD_W && tX <= NUMPAD_W + 100 && tY >= 130 && tY <= 193) {
-        drawButton(NUMPAD_W, 130, 100, 63, "CALL", 3, darkgreen, green, true, false);
+      if (tX <= NUMPAD_W && tX >= 0 && tY >= 130 && tY <= 319) {
+        int keyPressed = getNumpad();
+        tft.setTextColor(white, lightgrey);
+        tft.setTextSize(3);
+        tft.setCursor(kpX[keyPressed], 130 + kpY[keyPressed]);
+        tft.print(kpC[keyPressed]);
+        if (kpC[keyPressed] != '+' && kpC[keyPressed] != '#' && inputpwindex < 4) {
+          inputpw[inputpwindex] = kpC[keyPressed];
+          inputpwindex++;
+          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setTextColor(black, white);
+          tft.setTextSize(4);
+          tft.print(inputpw);
+        }
         buzz(5);
         while (ts.touched());
-        drawButton(NUMPAD_W, 130, 100, 63, "CALL", 3, darkgreen, green, false, false);
+        tft.setTextColor(black, lightgrey);
+        tft.setTextSize(3);
+        tft.setCursor(kpX[keyPressed], 130 + kpY[keyPressed]);
+        tft.print(kpC[keyPressed]);
+      }
+      if (tX > NUMPAD_W && tY >= 130 && tY <= 225) {
+        drawButton(NUMPAD_W, 130, 100, 95, "OK", 4, darkgreen, green, true, false);
+        if (inputpw[0] == psword[0] && inputpw[1] == psword[1] && inputpw[2] == psword[2] && inputpw[3] == psword[3]) {
+          for (i = 0; i < 4; i++) {
+            inputpw[i] = ' ';
+            inputpwindex = 0;
+          }
+          draw(SCREEN_HOME, true);
+        } else {
+          Serial.print("'");
+          Serial.print(inputpw);
+          Serial.print("' doesn't match password (");
+          Serial.print(psword);
+          Serial.println(")");
+          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setTextColor(red, white);
+          tft.setTextSize(4);
+          tft.print(inputpw);
+          delay(1000);
+          tft.setTextColor(black, white);
+          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.print(inputpw);
+          while (ts.touched());
+          drawButton(NUMPAD_W, 130, 100, 95, "OK", 4, darkgreen, green, false, false);
+        }
+      }
+      if (tX > NUMPAD_W && tY > 225) {
+        drawButton(NUMPAD_W, 225, 100, 95, "RMV", 4, maroon, red, true, false);
+        if (inputpwindex > 0) {
+          inputpwindex--;
+          inputpw[inputpwindex] = ' ';
+          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setTextColor(black, white);
+          tft.setTextSize(4);
+          tft.print(inputpw);
+        }
+        while (ts.touched());
+        drawButton(NUMPAD_W, 225, 100, 95, "RMV", 4, maroon, red, false, false);
+      }
+
+      break;
+    case SCREEN_PHONE:
+      if (tX >= 10 && tY >= 30 && tX <= 220 && tY <= 120) {
+        tft.fillRect(20, 20, 200, 250, white);
+        drawTRect(20, 20, 200, 250, black, 3);
+        tft.setCursor(36, 40);
+        tft.setTextSize(4);
+        tft.setTextColor(black, white);
+        for (i = 0; i < 7; i++) {
+          tft.print(phoneNumber[i]);
+        }
+        tft.setCursor(36, 100);
+        for (i = 7; i < 14; i++) {
+          tft.print(phoneNumber[i]);
+        }
+        tft.setCursor(36, 160);
+        for (i = 14; i < 21; i++) {
+          tft.print(phoneNumber[i]);
+        }
+        tft.setCursor(36, 220);
+        tft.print(phoneNumber[21]);
+        while (ts.touched());
+        draw(SCREEN_PHONE, false);
+      }
+      if (tX >= NUMPAD_W && tX <= NUMPAD_W + 100 && tY >= 130 && tY <= 193) {
+        drawButton(NUMPAD_W, 130, 100, 63, "CALL", 3, darkgreen, green, true, false);
+        while (ts.touched());
+        callTo(phoneNumber);
       }
 
       if (tX >= NUMPAD_W && tX <= NUMPAD_W + 100 && tY > 193 && tY <= 257) {
@@ -206,7 +308,6 @@ void touchHandler(byte screen) {
           phoneNumberIndex--;
           phoneNumber[phoneNumberIndex] = ' ';
         }
-        buzz(5);
         while (ts.touched());
         drawButton(NUMPAD_W, 193, 100, 64, "RMV", 3, maroon, red, false, false);
         tft.setCursor(20, 40);
@@ -227,7 +328,6 @@ void touchHandler(byte screen) {
           phoneNumber[i] = ' ';
           phoneNumberIndex = 0;
         }
-        buzz(5);
         while (ts.touched());
         drawButton(NUMPAD_W, 257, 100, 63, "CLEAR", 3, darkgrey, lightgrey, false, false);
         tft.setCursor(20, 40);
@@ -278,6 +378,89 @@ void touchHandler(byte screen) {
   }
 }
 
+void callTo(char tonumber[]) {
+  tft.fillScreen(darkgrey);
+  tft.setTextSize(3);
+  tft.setTextColor(white);
+  tft.setCursor(getTextCenter("Calling to", 120, 3), getTextCenter(30, 3));
+  tft.print("Calling to");
+  tft.setCursor(20, 70);
+  for (i = 0; i < 11; i++) {
+    tft.print(tonumber[i]);
+  }
+  tft.setCursor(20, 100);
+  for (i = 11; i < 22; i++) {
+    tft.print(tonumber[i]);
+  }
+  drawButton(20, 200, 200, 100, "END CALL", 3, maroon, red, false, true);
+
+  fona.callPhone(tonumber);
+
+  while (1) {
+    if (ts.touched()) {
+      tY = getY();
+      if (tY >= 200) {
+        drawButton(20, 200, 200, 100, "END CALL", 3, maroon, red, true, false);
+        while (ts.touched());
+        drawButton(20, 200, 200, 100, "END CALL", 3, maroon, red, false, false);
+        fona.hangUp();
+        break;
+      }
+    }
+  }
+
+  for (i = 0; i < 30; i++) {
+    phoneNumber[i] = ' ';
+    phoneNumberIndex = 0;
+  }
+  draw(SCREEN_PHONE, false);
+}
+
+void callFrom() {
+  bool ans = 0;
+  tft.fillScreen(darkgrey);
+  tft.setTextSize(2);
+  tft.setTextColor(white);
+  tft.setCursor(getTextCenter("Incoming call...", 120, 2), getTextCenter(40, 2));
+  tft.print("Incoming call...");
+  /*tft.setTextSize(3);
+    fona.incomingCallNumber(incNumber);
+    tft.setCursor(20, 70);
+    tft.print("+");
+    for (i = 0; i < 10; i++) {
+    tft.print(incNumber[i]);
+    }
+    tft.setCursor(20, 100);
+    for (i = 10; i < 21; i++) {
+    tft.print(incNumber[i]);
+    }*/
+  drawButton(20, 140, 200, 70, "ANSWER", 3, darkgreen, green, false, true);
+  drawButton(20, 230, 200, 70, "END CALL", 3, maroon, red, false, true);
+
+  while (1) {
+    if (!fona.getCallStatus()) {
+      break;
+    }
+    if (ts.touched()) {
+      tY = getY();
+      if (tY >= 140 && tY <= 210 && !ans) {
+        ans = 1;
+        drawButton(20, 140, 200, 70, "ANSWER", 3, darkgreen, green, true, false);
+        while (ts.touched());
+        fona.pickUp();
+        tft.fillRect(20, 140, 200, 70, darkgrey);
+      }
+      if (tY >= 230) {
+        drawButton(20, 230, 200, 70, "END CALL", 3, maroon, red, true, false);
+        while (ts.touched());
+        drawButton(20, 230, 200, 70, "END CALL", 3, maroon, red, false, false);
+        fona.hangUp();
+      }
+    }
+  }
+  draw(openApp, false);
+}
+
 void buzz(int dur) {
   fona.setPWM(2000);
   delay(dur);
@@ -290,6 +473,7 @@ void drawButton(int drawX, int drawY, int drawW, int drawH, char text[], int fon
     drawTRect(drawX, drawY, drawW, drawH, dcolor, 3);
   }
   if (pressed) {
+    buzz(5);
     tft.setTextColor(white, lcolor);
   } else {
     tft.setTextColor(dcolor, lcolor);
@@ -305,6 +489,7 @@ void drawMenuButton(int drawX, int drawY, int drawW, int drawH, char text[], int
     drawTRect(drawX, drawY, drawW, drawH, black, 3);
   }
   if (pressed) {
+    buzz(5);
     tft.setTextColor(lightgrey, white);
   } else {
     tft.setTextColor(color, white);
@@ -315,6 +500,8 @@ void drawMenuButton(int drawX, int drawY, int drawW, int drawH, char text[], int
 }
 
 void appRoutine(byte app) {
+  drawTime(app);
+  drawBatt(app);
   switch (app) {
     case SCREEN_HOME:
       break;
@@ -322,23 +509,35 @@ void appRoutine(byte app) {
       break;
     case SCREEN_LOCK:
       break;
-    case SCREEN_PHONE ... SCREEN_CALC:
-      drawTime(SCREEN_PHONE);
-      drawBatt(SCREEN_PHONE);
+    case SCREEN_PHONE:
       break;
   }
 }
 
 void drawBatt(byte screen) {
+  int toY = 187;
+  char battLen = 10;
   switch (screen) {
     case SCREEN_HOME:
+      tft.setTextSize(3);
+      getBatt();
+      if (batt < 100) {
+        battLen = 9;
+      }
+      if (batt < 10) {
+        battLen = 8;
+      }
+      tft.setCursor(getTextCenter(battLen, 120, 3), getTextCenter(85, 3));
+      tft.setTextColor(white, navy);
+      tft.print("Batt: ");
+      tft.print(batt);
+      tft.print('%');
       break;
     case SCREEN_MENU:
       break;
     case SCREEN_PHONE:
       tft.setTextSize(2);
       getBatt();
-      int toY = 187;
       if (batt < 100) {
         toY += 12;
       }
@@ -347,6 +546,35 @@ void drawBatt(byte screen) {
       }
       tft.setCursor(toY, getTextCenter(10, 2));
       tft.setTextColor(white, red);
+      tft.print(batt);
+      tft.print('%');
+      break;
+    case SCREEN_SMS1:
+    case SCREEN_SMS2:
+      tft.setTextSize(2);
+      getBatt();
+      if (batt < 100) {
+        toY += 12;
+      }
+      if (batt < 10) {
+        toY += 12;
+      }
+      tft.setCursor(toY, getTextCenter(10, 2));
+      tft.setTextColor(white, green);
+      tft.print(batt);
+      tft.print('%');
+      break;
+    case SCREEN_SET:
+      tft.setTextSize(2);
+      getBatt();
+      if (batt < 100) {
+        toY += 12;
+      }
+      if (batt < 10) {
+        toY += 12;
+      }
+      tft.setCursor(toY, getTextCenter(10, 2));
+      tft.setTextColor(white, lightgrey);
       tft.print(batt);
       tft.print('%');
       break;
@@ -359,10 +587,34 @@ void getBatt() {
 
 void drawTime(byte screen) {
   switch (screen) {
+    case SCREEN_HOME:
+      tft.setTextSize(6);
+      tft.setCursor(getTextCenter(time, 120, 6), getTextCenter(40, 6));
+      tft.setTextColor(white, navy);
+      getTime();
+      tft.print(time);
+      break;
+    case SCREEN_MENU:
+      break;
     case SCREEN_PHONE:
       tft.setTextSize(2);
       tft.setCursor(5, getTextCenter(10, 2));
       tft.setTextColor(white, red);
+      getTime();
+      tft.print(time);
+      break;
+    case SCREEN_SMS1:
+    case SCREEN_SMS2:
+      tft.setTextSize(2);
+      tft.setCursor(5, getTextCenter(10, 2));
+      tft.setTextColor(white, green);
+      getTime();
+      tft.print(time);
+      break;
+    case SCREEN_SET:
+      tft.setTextSize(2);
+      tft.setCursor(5, getTextCenter(10, 2));
+      tft.setTextColor(white, lightgrey);
       getTime();
       tft.print(time);
       break;
@@ -378,17 +630,10 @@ void getTime() {
 }
 
 void draw(byte screen, bool doAnim) {
-  /*int px1 = 0;
-    int py1 = 0;
-    int px2 = 0;
-    int py2 = 0;
-    int px3 = 0;
-    int py3 = 0;
-    int px4 = 0;
-    int py4 = 0;*/
   switch (screen) {
     case SCREEN_HOME:
-      openApp = SCREEN_HOME;
+      tft.fillScreen(navy);
+      drawButton(30, 190, 180, 100, "Open Menu", 3, darkgrey, lightgrey, false, true);
       break;
     case SCREEN_MENU:
       tft.fillRect(0, 0, 240, appHeight, navy);
@@ -402,23 +647,13 @@ void draw(byte screen, bool doAnim) {
       drawMenuButton(120, appHeight * 4, 120, appHeight, appNames[7], 2, appColor[7], false, true);
       break;
     case SCREEN_LOCK:
+      tft.fillScreen(white);
+      drawTRect(10, 20, 220, 90, black, 3);
+      drawNumpad(0, 130);
+      drawButton(NUMPAD_W, 130, 100, 95, "OK", 4, darkgreen, green, false, true);
+      drawButton(NUMPAD_W, 225, 100, 95, "RMV", 4, maroon, red, false, true);
       break;
     case SCREEN_PHONE:
-      /*if (doAnim) {
-        for (py1 = appHeight; py1 <= 320; py1 += 10) {
-          px1 = 0;
-          px2 = map(py1, appHeight, 320, 120, 0);
-          py2 = map(py1, appHeight, 320, appHeight, 0);
-          px3 = map(py1, appHeight, 320, 120, 240);
-          py3 = map(py1, appHeight, 320, appHeight * 2, 0);
-          px4 = map(py1, appHeight, 320, 0, 240);
-          py4 = map(py1, appHeight, 320, appHeight * 2, 320);
-          tft.drawLine(px1, py1, px2, py2, red);
-          tft.drawLine(px2, py2, px3, py3, red);
-          tft.drawLine(px3, py3, px4, py4, red);
-          tft.drawLine(px4, py4, px1, py1, red);
-        }
-        }*/
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 20, red);
       drawTRect(10, 30, 220, 90, black, 3);
@@ -426,16 +661,41 @@ void draw(byte screen, bool doAnim) {
       drawButton(NUMPAD_W, 130, 100, 63, "CALL", 3, darkgreen, green, false, true);
       drawButton(NUMPAD_W, 193, 100, 64, "RMV", 3, maroon, red, false, true);
       drawButton(NUMPAD_W, 257, 100, 63, "CLEAR", 3, darkgrey, lightgrey, false, true);
+      tft.setCursor(20, 40);
+      tft.setTextSize(3);
+      tft.setTextColor(black, white);
+      for (i = 0; i < 11; i++) {
+        tft.print(phoneNumber[i]);
+      }
+      tft.setCursor(20, 70);
+      for (i = 11; i < 22; i++) {
+        tft.print(phoneNumber[i]);
+      }
       break;
     case SCREEN_SMS1:
+      tft.fillScreen(white);
+      tft.fillRect(0, 0, 240, 20, green);
       break;
     case SCREEN_SMS2:
+      tft.fillScreen(white);
+      tft.fillRect(0, 0, 240, 20, green);
       break;
     case SCREEN_SET:
+      tft.fillScreen(white);
+      tft.fillRect(0, 0, 240, 20, lightgrey);
+      tft.setTextSize(3);
+      tft.setTextColor(black);
+      a = 0;
+      for (i = 90; i < 320; i += 70) {
+        tft.drawFastHLine(0, i, 240, darkgrey);
+        tft.setCursor(20, getTextCenter(i + 35, 3));
+        tft.print(settings[a]);
+        a++;
+      }
       break;
   }
   openApp = screen;
-  updateTimer = -10000;
+  updateTimer = -10001;
 }
 
 void drawNumpad(byte x, byte y) {
@@ -530,7 +790,6 @@ int getColor(int r, int g, int b) {
 
 int getTextLength(char text[], int fontS) {
   int length = getChars(text) * (6 * fontS);
-  Serial.println(length);
   return length;
 }
 
@@ -541,6 +800,10 @@ int getChars(char text[]) {
 
 int getTextCenter(char text[], int x, int font) {
   return x - getTextLength(text, font) / 2;
+}
+
+int getTextCenter(int length, int x, int font) {
+  return x - (length * (font * 6)) / 2;
 }
 
 int getTextCenter(int y, int font) {
