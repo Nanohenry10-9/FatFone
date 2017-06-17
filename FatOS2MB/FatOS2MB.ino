@@ -8,7 +8,7 @@
 
 Adafruit_FT6206 ts = Adafruit_FT6206();
 
-#define TFT_CS 10
+#define TFT_CS 10u
 #define TFT_DC 9
 #define TFT_BL 5
 #define SD_CS 4
