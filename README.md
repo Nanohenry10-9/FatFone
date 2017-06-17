@@ -9,7 +9,7 @@ It is built from three main parts:
 - A screen, for that I am using a 2.8" TFT LCD with capacitive touch
 - An Arduino, that controls the whole phone
 
-I programmed the whole OS (about 2000 lines) 100% by myself, except for the libraries, that I used for communicating with the different parts.
+I programmed the whole OS (FatOS 2M is about 2000 lines) 100% by myself, except for the libraries, that I used for communicating with the different parts.
 
 
 ## About FatFone
