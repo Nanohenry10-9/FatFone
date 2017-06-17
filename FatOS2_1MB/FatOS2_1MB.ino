@@ -64,6 +64,7 @@ Adafruit_FONA fona = Adafruit_FONA(FONA_RST);
 bool rot = 0;
 
 int bl = 100;
+int vol = 50;
 
 char* appNames[] = {"Phone", "SMS", "Settings", "Contacts", "Calc", "Radio", "UNO", "PONG"};
 int appColor[] = {red, green, darkgrey, blue, orange, navy, red, black};
@@ -133,20 +134,28 @@ char psword[] = {"1234"};
 char inputpw[] = {"    "};
 int inputpwindex = 0;
 
-char* settings[4] = {"Battery", "Screen", "Sounds", "Phone"};
+char* settings[4] = {"Battery", "Screen", "Phone", "Shutdown"};
 byte selectedSet = -1;
 
+char* contacts[4] = {"Name1", "Name2", "Name3", "Name4"};
+char contactNumbers[4][23] = {"", "", "", ""};
+
 char* chats[4] = {"Cont1", "Cont2", "Cont3", "Cont4"};
+char contNumbers[4][23] = {"", "", "", ""};
 int newMsgs[4] = {false, false, false, false};
-char msgs1[6][255] = {"Hello\0", "How are you?\0", "Good\0", "Alright\0"};
-char msgs2[6][255] = {"Hello\0", "How are you?\0", "Good\0", "Alright\0"};
-char msgs3[6][255] = {"Hello\0", "How are you?\0", "Good\0", "Alright\0"};
-char msgs4[6][255] = {"Hello\0", "How are you?\0", "Good\0", "Alright\0"};
-bool oMsg[4][6] = {{0, 0, 1, 0}, {0, 0, 0, 1}, {1, 0, 0, 0}, {0, 1, 0, 0}};
-int ms1[4] = {4, 4, 4, 4};
+char msgs1[6][100] = {"", "", "", ""};
+char msgs2[6][100] = {"", "", "", ""};
+char msgs3[6][100] = {"", "", "", ""};
+char msgs4[6][100] = {"", "", "", ""};
+bool oMsg[4][6] = {{0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}};
+int ms1[4] = {0, 0, 0, 0};
 int smsChat = -1;
 
+int oldSMSNum = 0;
+
 File SDfile;
+
+char smsBuff[100] = {""};
 
 void setup() {
   Serial.begin(115200);
@@ -161,16 +170,59 @@ void setup() {
   } else {
     tft.setRotation(2);
   }
-  analogWrite(TFT_BL, bl);
+  analogWrite(TFT_BL, 100);
   tft.fillScreen(navy);
   tft.setTextSize(1);
   tft.setTextColor(white, navy);
   tft.print(F("Starting touchscreen... "));
   ts.begin();
   tft.println(F("Done"));
-  tft.print(F("Initializing SD library... "));
-  SD.begin(SD_CS);
+
+  tft.print(F("Initializing SD card... "));
+  if (!SD.begin(SD_CS)) {
+    tft.print(F("\nError, could not init SD library"));
+    while (1);
+  }
+  if (!SD.exists("SET_VOL.txt")) {
+    tft.print("\nCreating SET_VOL.txt... ");
+    SDfile = SD.open("SET_VOL.txt", FILE_WRITE);
+    SDfile.print(5);
+    SDfile.close();
+  }
+  if (!SD.exists("SET_BL.txt")) {
+    tft.print("\nCreating SET_BL.txt... ");
+    SDfile = SD.open("SET_BL.txt", FILE_WRITE);
+    SDfile.print(9);
+    SDfile.close();
+  }
+  if (!SD.exists("AUD_TYP.txt")) {
+    tft.print("\nCreating AUD_TYP.txt... ");
+    SDfile = SD.open("AUD_TYP.txt", FILE_WRITE);
+    SDfile.print(1);
+    SDfile.close();
+  }
+  if (!SD.exists("CHAT1.txt")) {
+    tft.print("\nCreating CHAT1.txt... ");
+    SDfile = SD.open("CHAT1.txt", FILE_WRITE);
+    SDfile.close();
+  }
+  if (!SD.exists("CHAT2.txt")) {
+    tft.print("\nCreating CHAT2.txt... ");
+    SDfile = SD.open("CHAT2.txt", FILE_WRITE);
+    SDfile.close();
+  }
+  if (!SD.exists("CHAT3.txt")) {
+    tft.print("\nCreating CHAT3.txt... ");
+    SDfile = SD.open("CHAT3.txt", FILE_WRITE);
+    SDfile.close();
+  }
+  if (!SD.exists("CHAT4.txt")) {
+    tft.print("\nCreating CHAT4.txt... ");
+    SDfile = SD.open("CHAT4.txt", FILE_WRITE);
+    SDfile.close();
+  }
   tft.println(F("Done"));
+
   if (!digitalRead(FONA_PWR)) {
     tft.print(F("Powering up FONA... "));
     digitalWrite(FONA_KEY, LOW);
@@ -182,20 +234,101 @@ void setup() {
   tft.print(F("Starting FONA [1/2]... "));
   fonaSerial->begin(4800);
   tft.println(F("Done"));
+
   tft.print(F("Starting FONA [2/2]... "));
   fona.begin(*fonaSerial);
   tft.println(F("Done"));
-  tft.print(F("Setting FONA settings... "));
-  fona.setAudio(FONA_EXTAUDIO);
-  fona.setAllVolumes(50);
+
+  tft.print(F("Checking settings... "));
   fona.callerIdNotification(true, digitalPinToInterrupt(3));
   fona.setPWM(0);
+  SDfile = SD.open("SET_VOL.txt");
+  int SDread = SDfile.read() - '0';
+  vol = SDread * 10;
+  SDfile.close();
+  fona.setAllVolumes(vol);
+  SDfile = SD.open("SET_BL.txt");
+  SDread = SDfile.read() - '0';
+  bl = SDread * 25;
+  SDfile.close();
+  if (bl >= 100) {
+    for (i = 100; i <= bl; i++) {
+      analogWrite(TFT_BL, i);
+      delay(3);
+    }
+  } else {
+    for (i = 100; i >= bl; i--) {
+      analogWrite(TFT_BL, i);
+      delay(3);
+    }
+  }
+  SDfile = SD.open("AUD_TYP.txt");
+  SDread = SDfile.read() - '0';
+  fona.setAudio(SDread);
   tft.println(F("Done"));
-  tft.print(F("Starting graphical UI..."));
+
+  tft.print(F("Loading (new) SMS's into RAM... "));
+  for (int currentChat = 0; currentChat < 5; currentChat++) {
+    switch (currentChat) {
+      case 0:
+        SDfile = SD.open("CHAT1.txt");
+        break;
+      case 1:
+        SDfile = SD.open("CHAT2.txt");
+        break;
+      case 2:
+        SDfile = SD.open("CHAT3.txt");
+        break;
+      case 3:
+        SDfile = SD.open("CHAT4.txt");
+        break;
+    }
+    while (1) {
+      char charRead = SDfile.read();
+      Serial.print(charRead);
+      if (charRead == -1) {
+        break;
+      }
+      byte isOwn = charRead - '0';
+      int index = 0;
+      while (1) {
+        char SDSMSread = SDfile.read();
+        Serial.print(SDSMSread);
+        if (SDSMSread == '\n' || SDSMSread == -1) {
+          break;
+        }
+        smsBuff[index] = SDSMSread;
+        index++;
+      }
+      for (a = index; a < 100; a++) {
+        smsBuff[a] = '\0';
+      }
+      addSMS(currentChat, smsBuff, isOwn);
+    }
+    SDfile.close();
+  }
+  tft.println(F("Done"));
+
+  tft.print(F("Checking for errorz... "));
+  if (getTextLength("abc", 3) != 54) {
+    tft.print(F("\nFAILURE (l="));
+    tft.print(getTextLength("abc", 3));
+    tft.println(F(")"));
+    while (1);
+  }
+  if (getTextXCenter("abc", 240, 3) != 213) {
+    tft.print(F("\nFAILURE (c="));
+    tft.print(getTextXCenter("abc", 240, 3));
+    tft.println(F(")"));
+    while (1);
+  }
+  tft.println(F("Done"));
+
+  tft.print(F("Starting FatX..."));
   draw(SCREEN_LOCK, 0);
-  /*tone(45, 600, 30);
-    delay(40);
-    tone(45, 600, 200);*/
+  /*if (homeBtn() && backBtn()) { //Shutdown debug feature
+    shutdown();
+  }*/
 }
 
 void loop() {
@@ -216,17 +349,75 @@ void loop() {
     draw(SCREEN_HOME, true);
   }
 
-  if (!digitalRead(FONA_RI) && fona.getCallStatus() == 3 && openApp != SCREEN_LOCK) {
-    Serial.println("Incoming call!");
+  if (newSMS() && openApp != SCREEN_LOCK) {
+    char sender[23];
+    int num = fona.getNumSMS();
+    fona.readSMS(num, smsBuff, 100, NULL);
+    fona.getSMSSender(num, sender, 23);
+    byte newSMSchat = 0;
+    bool equal = true;
+    bool found = false;
+    for (a = 0; a < 4; a++) {
+      equal = true;
+      for (i = 0; i < getChars(sender); i++) {
+        Serial.print(sender[i]);
+        Serial.print(F(" = "));
+        Serial.print(contNumbers[a][i]);
+        Serial.println(F("?"));
+        if (isDigit(sender[i])) {
+          if (sender[i] != contNumbers[a][i]) {
+            equal = false;
+          }
+        }
+      }
+      Serial.println(F("Next contact..."));
+      if (equal) {
+        newSMSchat = a;
+      }
+    }
+    addSMS(newSMSchat, smsBuff, false);
+    if (openApp != SCREEN_SMS2) {
+      popup("New SMS received", "View", SMS_MSG);
+    } else {
+      tft.fillRect(0, 20, 240, 240, white);
+      tft.setTextSize(2);
+      tft.setTextColor(black);
+      for (a = 0; a < ms1[smsChat]; a++) {
+        tft.setCursor(10, (a + 1) * 40);
+        if (oMsg[smsChat][a]) {
+          tft.print("You: ");
+          Serial.print("You: ");
+        } else {
+          tft.print(chats[smsChat]);
+          Serial.print(chats[smsChat]);
+          tft.print(": ");
+          Serial.print(": ");
+        }
+        if (smsChat == 0) {
+          tft.print(msgs1[a]);
+          Serial.println(msgs1[a]);
+        } else if (smsChat == 1) {
+          tft.print(msgs2[a]);
+          Serial.println(msgs2[a]);
+        } else if (smsChat == 2) {
+          tft.print(msgs3[a]);
+          Serial.println(msgs3[a]);
+        } else if (smsChat == 3) {
+          tft.print(msgs4[a]);
+          Serial.println(msgs4[a]);
+        } else {
+          tft.print(F("Msg not found"));
+          Serial.println(F("Msg not found"));
+        }
+      }
+    }
+  }
+
+  if (incCall() && openApp != SCREEN_LOCK) {
     bool answered = callFrom();
     if (!answered && openApp != SCREEN_CHIS) {
       popup("Missed call", "View", PHONE_CALL);
     }
-  }
-
-  if (!digitalRead(FONA_RI) && fona.getCallStatus() != 3 && openApp != SCREEN_LOCK && openApp != SCREEN_SMS2) {
-    Serial.println("SMS received!");
-    popup("New SMS received", "View", SMS_MSG);
   }
 
   if (backBtn()) {
@@ -305,7 +496,7 @@ void touchHandler(byte screen) {
         if (kpC[keyPressed] != '+' && kpC[keyPressed] != '#' && inputpwindex < 4) {
           inputpw[inputpwindex] = kpC[keyPressed];
           inputpwindex++;
-          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setCursor(getTextXCenter(inputpw, 120, 4), getTextYCenter(65, 4));
           tft.setTextColor(black, white);
           tft.setTextSize(4);
           tft.print(inputpw);
@@ -331,7 +522,7 @@ void touchHandler(byte screen) {
           Serial.print("' doesn't match password (");
           Serial.print(psword);
           Serial.println(")");
-          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setCursor(getTextXCenter(inputpw, 120, 4), getTextYCenter(65, 4));
           tft.setTextColor(red, white);
           tft.setTextSize(4);
           tft.print(inputpw);
@@ -341,7 +532,7 @@ void touchHandler(byte screen) {
             inputpw[i] = ' ';
           }
           inputpwindex = 0;
-          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setCursor(getTextXCenter(inputpw, 120, 4), getTextYCenter(65, 4));
           tft.print(inputpw);
           while (ts.touched());
           drawButton(NUMPAD_W, 130, 100, 95, "OK", 4, darkgreen, green, false, false);
@@ -352,7 +543,7 @@ void touchHandler(byte screen) {
         if (inputpwindex > 0) {
           inputpwindex--;
           inputpw[inputpwindex] = ' ';
-          tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
+          tft.setCursor(getTextXCenter(inputpw, 120, 4), getTextYCenter(65, 4));
           tft.setTextColor(black, white);
           tft.setTextSize(4);
           tft.print(inputpw);
@@ -527,7 +718,38 @@ void touchHandler(byte screen) {
           draw(SCREEN_PHONE, false);
         }
       } else {
-        
+        char numberBuffer[30];
+        numberBuffer[0] = '+';
+        if (tY >= 20 && tY < 90) {
+          for (i = 0; i < 22; i++) {
+            numberBuffer[i + 1] = chistory[0][i];
+          }
+          callTo(numberBuffer);
+        }
+        if (tY >= 90 && tY < 150) {
+          for (i = 0; i < 22; i++) {
+            numberBuffer[i + 1] = chistory[1][i];
+          }
+          callTo(numberBuffer);
+        }
+        if (tY >= 150 && tY < 210) {
+          for (i = 0; i < 22; i++) {
+            numberBuffer[i + 1] = chistory[2][i];
+          }
+          callTo(numberBuffer);
+        }
+        if (tY >= 210 && tY < 270) {
+          for (i = 0; i < 22; i++) {
+            numberBuffer[i + 1] = chistory[3][i];
+          }
+          callTo(numberBuffer);
+        }
+        if (tY >= 270) {
+          for (i = 0; i < 22; i++) {
+            numberBuffer[i + 1] = chistory[4][i];
+          }
+          callTo(numberBuffer);
+        }
       }
       break;
     case SCREEN_SMS1:
@@ -568,7 +790,7 @@ void touchHandler(byte screen) {
             tft.setTextColor(white, lightgrey);
             upperCase = true;
           }
-          tft.setCursor(getTextCenter("abc", kpX[11], 1), 130 + kpY[11]);
+          tft.setCursor(getTextXCenter("abc", kpX[11], 1), 130 + kpY[11]);
           for (i = 33; i < 36; i++) {
             tft.print(charsL[i]);
           }
@@ -577,7 +799,7 @@ void touchHandler(byte screen) {
           tft.setTextColor(black, lightgrey);
           int letrs = 0;
           for (i = 0; i < 11; i++) {
-            tft.setCursor(getTextCenter("abc", kpX[i], 1), 130 + kpY[i]);
+            tft.setCursor(getTextXCenter("abc", kpX[i], 1), 130 + kpY[i]);
             for (a = 0; a < 3; a++) {
               if (upperCase) {
                 tft.print(charsU[letrs]);
@@ -633,20 +855,17 @@ void touchHandler(byte screen) {
 
           buzz(5);
           while (ts.touched());
-          // Redraw the keypad white
+          
         }
       }
       if (tX >= NUMPAD_W && tX <= NUMPAD_W + 100 && tY >= 130 && tY <= 193) {
         drawButton(NUMPAD_W, 130, 100, 63, "SEND", 3, darkgreen, green, true, false);
         while (ts.touched());
         // Send SMS (FONA)
-        for (i = 0; i < maxSMS; i++) {
-          msgs1[ms1[smsChat]][i] = smsMsg[i];
-        }
-        oMsg[smsChat][ms1[smsChat]] = true;
-        if (ms1[smsChat] < 5) {
-          ms1[smsChat]++;
-        }
+        smsMsg[smsI] = '\0';
+        fona.sendSMS(contNumbers[smsChat], smsMsg);
+        addSMS(smsChat, smsMsg, true);
+
         for (i = 0; i < maxSMS; i++) {
           smsMsg[i] = ' ';
         }
@@ -709,10 +928,10 @@ void popup(char msg[], char btn1[], byte type) {
   drawTRect(10, 20, 220, 100, black, 3);
   tft.setTextSize(2);
   tft.setTextColor(black);
-  tft.setCursor(getTextCenter(msg, 120, 2), getTextCenter(70, 2));
+  tft.setCursor(getTextXCenter(msg, 120, 2), getTextYCenter(70, 2));
   tft.print(msg);
   tft.setTextSize(3);
-  tft.setCursor(getTextCenter(btn1, 120, 3), getTextCenter(145, 3));
+  tft.setCursor(getTextXCenter(btn1, 120, 3), getTextYCenter(145, 3));
   tft.print(btn1);
   while (!ts.touched());
   switch (type) {
@@ -735,7 +954,7 @@ void callTo(char tonumber[]) {
   tft.fillScreen(darkgrey);
   tft.setTextSize(3);
   tft.setTextColor(white);
-  tft.setCursor(getTextCenter("Calling to", 120, 3), getTextCenter(30, 3));
+  tft.setCursor(getTextXCenter("Calling to", 120, 3), getTextYCenter(30, 3));
   tft.print("Calling to");
   tft.setCursor(20, 70);
   for (i = 0; i < 11; i++) {
@@ -774,9 +993,7 @@ void callTo(char tonumber[]) {
     called[i] = called[i - 1];
   }
   for (i = 0; i < 22; i++) {
-    //if (isDigit(tonumber[i])) {
     chistory[0][i] = tonumber[i + 1];
-    //}
   }
   answered[0] = 1;
 
@@ -784,7 +1001,7 @@ void callTo(char tonumber[]) {
     phoneNumber[i] = ' ';
     phoneNumberIndex = 0;
   }
-  draw(SCREEN_PHONE, true);
+  draw(openApp, true);
 }
 
 bool callFrom() {
@@ -793,7 +1010,7 @@ bool callFrom() {
   tft.fillScreen(darkgrey);
   tft.setTextSize(2);
   tft.setTextColor(white);
-  tft.setCursor(getTextCenter("Incoming call...", 120, 2), getTextCenter(40, 2));
+  tft.setCursor(getTextXCenter("Incoming call...", 120, 2), getTextYCenter(40, 2));
   tft.print("Incoming call...");
 
   drawButton(20, 140, 200, 70, "ANSWER", 3, darkgreen, green, false, true);
@@ -871,6 +1088,71 @@ void buzz(int dur) {
   fona.setPWM(0);
 }
 
+void addSMS(byte chat, char msg[100], bool own) {
+  if (ms1[chat] == 5) {
+    Serial.println(F("Shifting all SMS's..."));
+    for (i = 0; i < 4; i++) {
+      for (a = 0; a < 100; a++) {
+        switch (chat) {
+          case 0:
+            msgs1[i][a] = msgs1[i + 1][a];
+            break;
+          case 1:
+            msgs2[i][a] = msgs2[i + 1][a];
+            break;
+          case 2:
+            msgs3[i][a] = msgs3[i + 1][a];
+            break;
+          case 3:
+            msgs4[i][a] = msgs4[i + 1][a];
+            break;
+        }
+      }
+      oMsg[chat][i] = oMsg[chat][i + 1];
+    }
+    Serial.println(F("Adding new SMS to array..."));
+    for (i = 0; i < 100; i++) {
+      switch (chat) {
+        case 0:
+          msgs1[ms1[chat] - 1][i] = msg[i];
+          break;
+        case 1:
+          msgs2[ms1[chat] - 1][i] = msg[i];
+          break;
+        case 2:
+          msgs3[ms1[chat] - 1][i] = msg[i];
+          break;
+        case 3:
+          msgs4[ms1[chat] - 1][i] = msg[i];
+          break;
+      }
+
+    }
+  } else {
+    Serial.println(F("Adding new SMS to array..."));
+    for (i = 0; i < 100; i++) {
+      switch (chat) {
+        case 0:
+          msgs1[ms1[chat]][i] = msg[i];
+          break;
+        case 1:
+          msgs2[ms1[chat]][i] = msg[i];
+          break;
+        case 2:
+          msgs3[ms1[chat]][i] = msg[i];
+          break;
+        case 3:
+          msgs4[ms1[chat]][i] = msg[i];
+          break;
+      }
+    }
+  }
+  oMsg[chat][ms1[chat]] = own;
+  if (ms1[chat] < 5) {
+    ms1[chat]++;
+  }
+}
+
 void drawButton(int drawX, int drawY, int drawW, int drawH, char text[], int fontS, int dcolor, int lcolor, bool pressed, bool bgDraw) {
   if (bgDraw) {
     tft.fillRect(drawX, drawY, drawW, drawH, lcolor);
@@ -883,7 +1165,7 @@ void drawButton(int drawX, int drawY, int drawW, int drawH, char text[], int fon
     tft.setTextColor(dcolor, lcolor);
   }
   tft.setTextSize(fontS);
-  tft.setCursor(getTextCenter(text, drawX + drawW / 2, fontS), getTextCenter(drawY + drawH / 2, fontS));
+  tft.setCursor(getTextXCenter(text, drawX + drawW / 2, fontS), getTextYCenter(drawY + drawH / 2, fontS));
   tft.print(text);
 }
 
@@ -899,7 +1181,7 @@ void drawMenuButton(int drawX, int drawY, int drawW, int drawH, char text[], int
     tft.setTextColor(color, white);
   }
   tft.setTextSize(fontS);
-  tft.setCursor(getTextCenter(text, drawX + drawW / 2, fontS), getTextCenter(drawY + drawH / 2, fontS));
+  tft.setCursor(getTextXCenter(text, drawX + drawW / 2, fontS), getTextYCenter(drawY + drawH / 2, fontS));
   tft.print(text);
 }
 
@@ -931,7 +1213,7 @@ void drawBatt(byte screen) {
       if (batt < 10) {
         battLen = 8;
       }
-      tft.setCursor(getTextCenter(battLen, 120, 3), getTextCenter(85, 3));
+      tft.setCursor(getTextXLCenter(battLen, 120, 3), getTextYCenter(85, 3));
       tft.setTextColor(white, navy);
       tft.print("Batt: ");
       tft.print(batt);
@@ -948,7 +1230,7 @@ void drawBatt(byte screen) {
       if (batt < 10) {
         toY += 12;
       }
-      tft.setCursor(toY, getTextCenter(10, 2));
+      tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, red);
       tft.print(batt);
       tft.print('%');
@@ -963,7 +1245,7 @@ void drawBatt(byte screen) {
       if (batt < 10) {
         toY += 12;
       }
-      tft.setCursor(toY, getTextCenter(10, 2));
+      tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, green);
       tft.print(batt);
       tft.print('%');
@@ -977,7 +1259,7 @@ void drawBatt(byte screen) {
       if (batt < 10) {
         toY += 12;
       }
-      tft.setCursor(toY, getTextCenter(10, 2));
+      tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, lightgrey);
       tft.print(batt);
       tft.print('%');
@@ -993,31 +1275,37 @@ void drawTime(byte screen) {
   switch (screen) {
     case SCREEN_HOME:
       tft.setTextSize(6);
-      tft.setCursor(getTextCenter(time, 120, 6), getTextCenter(40, 6));
+      tft.setCursor(getTextXCenter(time, 120, 6), getTextYCenter(40, 6));
       tft.setTextColor(white, navy);
       getTime();
       tft.print(time);
       break;
     case SCREEN_MENU:
+      tft.setTextSize(4);
+      tft.setCursor(getTextXCenter(time, 120, 4), getTextYCenter(32, 4));
+      tft.setTextColor(white, navy);
+      getTime();
+      tft.print(time);
       break;
     case SCREEN_PHONE:
       tft.setTextSize(2);
-      tft.setCursor(5, getTextCenter(10, 2));
+      tft.setCursor(5, getTextYCenter(10, 2));
       tft.setTextColor(white, red);
       getTime();
       tft.print(time);
       break;
     case SCREEN_SMS1:
     case SCREEN_SMS2:
+    case SCREEN_SMSS:
       tft.setTextSize(2);
-      tft.setCursor(5, getTextCenter(10, 2));
+      tft.setCursor(5, getTextYCenter(10, 2));
       tft.setTextColor(white, green);
       getTime();
       tft.print(time);
       break;
     case SCREEN_SET:
       tft.setTextSize(2);
-      tft.setCursor(5, getTextCenter(10, 2));
+      tft.setCursor(5, getTextYCenter(10, 2));
       tft.setTextColor(white, lightgrey);
       getTime();
       tft.print(time);
@@ -1056,8 +1344,8 @@ void draw(byte screen, bool doAnim) {
       drawNumpad(0, 130);
       drawButton(NUMPAD_W, 130, 100, 95, "OK", 4, darkgreen, green, false, true);
       drawButton(NUMPAD_W, 225, 100, 95, "RMV", 4, maroon, red, false, true);
-      tft.setCursor(getTextCenter(inputpw, 120, 4), getTextCenter(65, 4));
-      tft.setTextColor(red, white);
+      tft.setCursor(getTextXLCenter(getChars(inputpw), 120, 4), getTextYCenter(65, 4));
+      tft.setTextColor(black, white);
       tft.setTextSize(4);
       tft.print(inputpw);
       break;
@@ -1073,7 +1361,7 @@ void draw(byte screen, bool doAnim) {
       drawButton(NUMPAD_W, 257, 100, 63, "CLEAR", 3, darkgrey, lightgrey, false, true);
       tft.setTextColor(black, white);
       tft.setTextSize(1);
-      tft.setCursor(getTextCenter("Swipe left or right for call history", 120, 1), getTextCenter(115, 1));
+      tft.setCursor(getTextXCenter("Swipe left or right for call history", 120, 1), getTextYCenter(115, 1));
       tft.print(F("Swipe left or right for call history"));
       tft.setCursor(20, 40);
       tft.setTextSize(3);
@@ -1111,24 +1399,30 @@ void draw(byte screen, bool doAnim) {
     case SCREEN_SMS1:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 20, green);
-      tft.setTextColor(black);
       a = 0;
+      tft.setTextColor(black, white);
       for (i = 90; i < 320; i += 70) {
         tft.drawFastHLine(0, i, 240, darkgrey);
-        tft.setTextSize(3);
-        tft.setCursor(20, getTextCenter(i - 35, 3));
-        if (getChars(chats[a]) > 9) {
+        tft.setTextSize(2);
+        tft.setCursor(20, getTextYCenter(i - 50, 2));
+        /*if (getChars(chats[a]) > 9) {
           tft.setTextSize(2);
-          tft.setCursor(20, getTextCenter(i - 35, 2));
+          tft.setCursor(20, getTextYCenter(i - 35, 2));
+          }*/
+        if (newMsgs[a]) {
+          tft.setTextColor(blue, white);
         }
         tft.print(chats[a]);
+        tft.setCursor(20, getTextYCenter(i - 20, 2));
+        tft.setTextColor(black, white);
+        tft.print(contNumbers[a]);
         a++;
       }
       break;
     case SCREEN_SMS2:
       tft.fillScreen(white);
       tft.fillRect(0, 0, 240, 20, green);
-      tft.setTextSize(2);
+      tft.setTextSize(1);
       tft.setTextColor(black);
       for (a = 0; a < ms1[smsChat]; a++) {
         tft.setCursor(10, (a + 1) * 40);
@@ -1141,8 +1435,22 @@ void draw(byte screen, bool doAnim) {
           tft.print(": ");
           Serial.print(": ");
         }
-        tft.print(msgs1[a]);
-        Serial.println(msgs1[a]);
+        if (smsChat == 0) {
+          tft.print(msgs1[a]);
+          Serial.println(msgs1[a]);
+        } else if (smsChat == 1) {
+          tft.print(msgs2[a]);
+          Serial.println(msgs2[a]);
+        } else if (smsChat == 2) {
+          tft.print(msgs3[a]);
+          Serial.println(msgs3[a]);
+        } else if (smsChat == 3) {
+          tft.print(msgs4[a]);
+          Serial.println(msgs4[a]);
+        } else {
+          tft.print(F("Msg not found"));
+          Serial.println(F("Msg not found"));
+        }
       }
       drawButton(0, 260, 240, 60, "SEND MESSAGE", 3, darkgreen, green, false, true);
       break;
@@ -1163,7 +1471,7 @@ void draw(byte screen, bool doAnim) {
       a = 0;
       for (i = 90; i < 320; i += 70) {
         tft.drawFastHLine(0, i, 240, darkgrey);
-        tft.setCursor(20, getTextCenter(i - 35, 3));
+        tft.setCursor(20, getTextYCenter(i - 35, 3));
         tft.print(settings[a]);
         a++;
       }
@@ -1194,7 +1502,7 @@ void drawKeypad(int x, int y) {
   int letrs;
   letrs = 0;
   for (i = 0; i < 12; i++) {
-    tft.setCursor(getTextCenter("abc", x + kpX[i], 1), y + kpY[i]);
+    tft.setCursor(getTextXCenter("abc", x + kpX[i], 1), y + kpY[i]);
     for (a = 0; a < 3; a++) {
       tft.print(charsL[letrs]);
       Serial.print(charsL[letrs]);
@@ -1306,25 +1614,38 @@ int getTextLength(char text[], int fontS) {
 }
 
 int getChars(char text[]) {
+  int chars;
+  chars = 0;
   String tempText = String(text);
-  return tempText.length();
+  for (int index = 0; index < tempText.length(); index++) {
+    if (text[index] != '\0') {
+      chars++;
+    }
+  }
+  return chars;//tempText.length();
 }
 
-int getTextCenter(char text[], int x, int font) {
-  return x - getTextLength(text, font) / 2;
+int getTextXCenter(char text[], int xCoord, int font) {
+  //Serial.print(F("X: "));
+  //Serial.println(xCoord - getTextLength(text, font) / 2);
+  return xCoord - getTextLength(text, font) / 2;
 }
 
-int getTextCenter(int length, int x, int font) {
-  return x - (length * (font * 6)) / 2;
+int getTextXLCenter(int length, int xCoord, int font) {
+  //Serial.print(F("X: "));
+  //Serial.println(xCoord - (length * (font * 6)) / 2);
+  return xCoord - (length * (font * 6)) / 2;
 }
 
-int getTextCenter(int y, int font) {
-  return y - 3.5 * font;
+int getTextYCenter(int yCoord, int font) {
+  //Serial.print(F("Y: "));
+  //Serial.println(yCoord - 3.5 * font);
+  return yCoord - 3.5 * font;
 }
 
 void drawTRect(int x, int y, int w, int h, int color, int t) {
-  for (i = 0; i < t; i++) {
-    tft.drawRect(x + i, y + i, w - i * 2, h - i * 2, color);
+  for (int line = 0; line < t; line++) {
+    tft.drawRect(x + line, y + line, w - line * 2, h - line * 2, color);
   }
 }
 
@@ -1334,6 +1655,96 @@ bool homeBtn() {
 
 bool backBtn() {
   return !digitalRead(19);
+}
+
+bool incCall() {
+  bool ringPin = digitalRead(FONA_RI);
+  if (!ringPin && fona.getCallStatus() == 3) {
+    Serial.println(F("OS: Incoming call!"));
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool newSMS() {
+  bool ringPin = digitalRead(FONA_RI);
+  //Serial.println(ringPin);
+  if (!ringPin && oldSMSNum != fona.getNumSMS()) {
+    Serial.println(F("OS: SMS received!"));
+    oldSMSNum = fona.getNumSMS();
+    return true;
+  } else {
+    return false;
+  }
+}
+
+void shutdown() {
+  tft.fillScreen(black);
+  SD.remove("CHAT1.txt");
+  SD.remove("CHAT2.txt");
+  SD.remove("CHAT3.txt");
+  SD.remove("CHAT4.txt");
+  SDfile = SD.open("CHAT1.txt", FILE_WRITE);
+  if (ms1[0] != 0) {
+    for (i = 0; i < ms1[0] - 1; i++) {
+      SDfile.print(oMsg[0][i]);
+      SDfile.println(msgs1[i]);
+    }
+    if (ms1[0] == 4) {
+      SDfile.print(oMsg[0][3]);
+      SDfile.print(msgs1[3]);
+    }
+  }
+  SDfile.close();
+
+  SDfile = SD.open("CHAT2.txt", FILE_WRITE);
+  if (ms1[1] != 0) {
+    for (i = 0; i < ms1[1] - 1; i++) {
+      SDfile.print(oMsg[1][i]);
+      SDfile.println(msgs2[i]);
+    }
+    if (ms1[1] == 4) {
+      SDfile.print(oMsg[1][3]);
+      SDfile.print(msgs2[3]);
+    }
+  }
+  SDfile.close();
+
+  SDfile = SD.open("CHAT3.txt", FILE_WRITE);
+  if (ms1[2] != 0) {
+    for (i = 0; i < ms1[2] - 1; i++) {
+      SDfile.print(oMsg[2][i]);
+      SDfile.println(msgs3[i]);
+    }
+    if (ms1[2] == 4) {
+      SDfile.print(oMsg[2][3]);
+      SDfile.print(msgs3[3]);
+    }
+  }
+  SDfile.close();
+
+  SDfile = SD.open("CHAT4.txt", FILE_WRITE);
+  if (ms1[3] != 0) {
+    for (i = 0; i < ms1[3] - 1; i++) {
+      SDfile.print(oMsg[3][i]);
+      SDfile.println(msgs4[i]);
+    }
+    if (ms1[3] == 4) {
+      SDfile.print(oMsg[3][3]);
+      SDfile.print(msgs4[3]);
+    }
+  }
+  SDfile.close();
+
+  digitalWrite(FONA_KEY, LOW);
+  delay(2100);
+  digitalWrite(FONA_KEY, HIGH);
+
+  tft.setTextSize(1);
+  tft.setTextColor(white);
+  tft.setCursor(getTextXCenter("You can now power off", 120, 1), getTextYCenter(160, 1));
+  tft.print(F("You can now power off"));
 }
 
 
