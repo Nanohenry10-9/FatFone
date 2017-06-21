@@ -68,7 +68,6 @@ int vol = 50;
 
 char* appNames[] = {"Phone", "SMS", "Settings", "Contacts", "Calc", "Radio", "UNO", "PONG"};
 int appColor[] = {red, green, darkgrey, blue, orange, navy, red, black};
-//int appColor[] = {black, black, black, black, black, black, black, black};
 byte numOfApps = 8;
 #define appHeight 64 // Screen height (320) / 5
 
@@ -134,7 +133,7 @@ char psword[] = {"1234"};
 char inputpw[] = {"    "};
 int inputpwindex = 0;
 
-char* settings[4] = {"Battery", "Screen", "Phone", "Shutdown"};
+char* settings[4] = {"General", "Battery", "GSM stuff", "Shutdown"};
 byte selectedSet = -1;
 
 char* contacts[4] = {"Name1", "Name2", "Name3", "Name4"};
@@ -328,7 +327,7 @@ void setup() {
   draw(SCREEN_LOCK, 0);
   /*if (homeBtn() && backBtn()) { //Shutdown debug feature
     shutdown();
-  }*/
+    }*/
 }
 
 void loop() {
@@ -427,6 +426,9 @@ void loop() {
         break;
       case SCREEN_SMSS:
         draw(SCREEN_SMS2, false);
+        break;
+      case SCREEN_SET2:
+        draw(SCREEN_SET, false);
         break;
     }
   }
@@ -855,7 +857,7 @@ void touchHandler(byte screen) {
 
           buzz(5);
           while (ts.touched());
-          
+
         }
       }
       if (tX >= NUMPAD_W && tX <= NUMPAD_W + 100 && tY >= 130 && tY <= 193) {
@@ -907,16 +909,50 @@ void touchHandler(byte screen) {
       break;
     case SCREEN_SET:
       if (tY >= 20 && tY <= 90) {
-        // Option 1
+        selectedSet = 0;
+        draw(SCREEN_SET2, false);
       }
       if (tY > 90 && tY <= 160) {
-        // Option 2
+        selectedSet = 1;
+        draw(SCREEN_SET2, false);
       }
       if (tY > 160 && tY <= 230) {
-        // Option 3
+        selectedSet = 2;
+        draw(SCREEN_SET2, false);
       }
       if (tY > 230 && tY <= 300) {
-        // Option 4
+        shutdown();
+      }
+      break;
+    case SCREEN_SET2:
+      switch (selectedSet) {
+        case 0:
+          if (tY > 60 && tY < 100) {
+            while (ts.touched() && tX > 20 && tX < 210) {
+              tft.fillRect(map(bl, 0, 255, 20, 210), 60, 10, 40, white);
+              bl = map(tX, 20, 210, 0, 255);
+              tft.fillRect(map(bl, 0, 100, 20, 210), 60, 10, 40, darkgrey);
+              analogWrite(TFT_BL, bl);
+              tX = getX();
+            }
+          }
+          if (tY > 140 && tY < 180) {
+            while (ts.touched() && tX > 20 && tX < 210) {
+              tft.fillRect(map(vol, 0, 100, 20, 210), 140, 10, 40, white);
+              vol = map(tX, 20, 210, 0, 100);
+              tft.fillRect(map(vol, 0, 100, 20, 210), 140, 10, 40, darkgrey);
+              tX = getX();
+            }
+            fona.setAllVolumes(vol);
+            fona.playToolkitTone(6, 1000);
+          }
+          break;
+        case 1:
+
+          break;
+        case 2:
+
+          break;
       }
       break;
   }
@@ -1225,10 +1261,10 @@ void drawBatt(byte screen) {
       tft.setTextSize(2);
       getBatt();
       if (batt < 100) {
-        toY += 12;
+        tft.print(' ');
       }
       if (batt < 10) {
-        toY += 12;
+        tft.print(' ');
       }
       tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, red);
@@ -1237,13 +1273,14 @@ void drawBatt(byte screen) {
       break;
     case SCREEN_SMS1:
     case SCREEN_SMS2:
+    case SCREEN_SMSS:
       tft.setTextSize(2);
       getBatt();
       if (batt < 100) {
-        toY += 12;
+        tft.print(' ');
       }
       if (batt < 10) {
-        toY += 12;
+        tft.print(' ');
       }
       tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, green);
@@ -1254,10 +1291,24 @@ void drawBatt(byte screen) {
       tft.setTextSize(2);
       getBatt();
       if (batt < 100) {
-        toY += 12;
+        tft.print(' ');
       }
       if (batt < 10) {
-        toY += 12;
+        tft.print(' ');
+      }
+      tft.setCursor(toY, getTextYCenter(10, 2));
+      tft.setTextColor(white, lightgrey);
+      tft.print(batt);
+      tft.print('%');
+      break;
+    case SCREEN_SET2:
+      tft.setTextSize(2);
+      getBatt();
+      if (batt < 100) {
+        tft.print(' ');
+      }
+      if (batt < 10) {
+        tft.print(' ');
       }
       tft.setCursor(toY, getTextYCenter(10, 2));
       tft.setTextColor(white, lightgrey);
@@ -1472,8 +1523,46 @@ void draw(byte screen, bool doAnim) {
       for (i = 90; i < 320; i += 70) {
         tft.drawFastHLine(0, i, 240, darkgrey);
         tft.setCursor(20, getTextYCenter(i - 35, 3));
+        if (a == 3) {
+          tft.setTextColor(red);
+        }
         tft.print(settings[a]);
         a++;
+      }
+      break;
+    case SCREEN_SET2:
+      tft.fillScreen(white);
+      tft.fillRect(0, 0, 240, 20, lightgrey);
+      tft.setTextSize(2);
+      tft.setTextColor(black, white);
+      tft.setCursor(10, 30);
+      switch (selectedSet) {
+        case 0:
+          tft.setCursor(getTextXCenter("Backlight", 120, 2), 40);
+          tft.print(F("Backlight"));
+          tft.drawFastHLine(20, 80, 200, black);
+          tft.drawFastVLine(20, 60, 40, black);
+          tft.drawFastVLine(220, 60, 40, black);
+          tft.drawFastVLine(120, 65, 30, black);
+          tft.drawFastVLine(70, 70, 20, black);
+          tft.drawFastVLine(170, 70, 20, black);
+          tft.fillRect(map(bl, 0, 255, 20, 210), 60, 10, 40, darkgrey);
+          tft.setCursor(getTextXCenter("Volume", 120, 2), 120);
+          tft.print(F("Volume"));
+          tft.drawFastHLine(20, 160, 200, black);
+          tft.drawFastVLine(20, 140, 40, black);
+          tft.drawFastVLine(220, 140, 40, black);
+          tft.drawFastVLine(120, 145, 30, black);
+          tft.drawFastVLine(70, 150, 20, black);
+          tft.drawFastVLine(170, 150, 20, black);
+          tft.fillRect(map(vol, 0, 100, 20, 210), 140, 10, 40, darkgrey);
+          break;
+        case 1:
+          tft.print(F("Battery"));
+          break;
+        case 2:
+          tft.print(F("GSM stuff"));
+          break;
       }
       break;
     default:
@@ -1483,7 +1572,7 @@ void draw(byte screen, bool doAnim) {
       tft.setCursor(0, 0);
       tft.print(F("ERROR (app n. "));
       tft.print(screen);
-      tft.print(F("):\nNot Found\n\nReturning to menu.."));
+      tft.print(F("):\nNot Found :(\n\nReturning to menu.."));
       delay(5000);
       screen = SCREEN_MENU;
       draw(SCREEN_MENU, false);
@@ -1622,7 +1711,7 @@ int getChars(char text[]) {
       chars++;
     }
   }
-  return chars;//tempText.length();
+  return chars;
 }
 
 int getTextXCenter(char text[], int xCoord, int font) {
@@ -1669,7 +1758,6 @@ bool incCall() {
 
 bool newSMS() {
   bool ringPin = digitalRead(FONA_RI);
-  //Serial.println(ringPin);
   if (!ringPin && oldSMSNum != fona.getNumSMS()) {
     Serial.println(F("OS: SMS received!"));
     oldSMSNum = fona.getNumSMS();
@@ -1745,6 +1833,8 @@ void shutdown() {
   tft.setTextColor(white);
   tft.setCursor(getTextXCenter("You can now power off", 120, 1), getTextYCenter(160, 1));
   tft.print(F("You can now power off"));
+  asm volatile ("jmp 0");
+  while (1);
 }
 
 
