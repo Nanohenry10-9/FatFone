@@ -1,0 +1,65 @@
+00	empty
+
+01	A
+02	B
+03	C
+04	D
+05	E
+06	F
+07	G
+08	H
+09	I
+10	J
+11	K
+12	L
+13	M
+14	N
+15	O
+16	P
+17	Q
+18	R
+19	S
+20	T
+21	U
+22	V
+23	W
+24	X
+25	Y
+26	Z
+
+27	top left corner
+28	top right corner
+29	lower left corner
+30	lower right corner
+31	top line
+32	left line
+33	bottom line
+34	right line
+
+35	.
+36	?
+37	!
+
+38	cross
+39	tick
+
+40	clock1
+41	clock2
+42	clock3
+43	clock4
+
+44	0
+45	1
+46	2
+47	3
+48	4
+49	5
+50	6
+51	7
+52	8
+53	9
+
+54	+
+55	-
+56	*
+57	/
