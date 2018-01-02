@@ -45,4 +45,18 @@ A version of FatOS 2M but with the use of two external buttons (like Ardroid's h
 
 #### OS version 2.1MB
 
-The most recent OS. Still under development.
+The most recent OS. It has a lot of functionslity already but is not working at the moment (possibly due to hardware getting old)
+
+**This is where the OS versions begin being just attempts at doing something new*** 
+
+#### OS version 3
+
+An attemp at adding screen memory to the phone. Bad idea, as the Mega ADK only has 8Kb or RAM
+
+#### OS version 4
+
+An attemp at putting the OS code and all the apps on the SD card
+
+#### OS version 5
+
+Now, this version will be an actual version (unlike the previous two), with something that I do not really know either. And it will soon be under **heavy development**.

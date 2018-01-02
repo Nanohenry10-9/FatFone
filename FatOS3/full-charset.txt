@@ -32,9 +32,9 @@
 29	lower left corner
 30	lower right corner
 31	top line
-32	left line
+32	right line
 33	bottom line
-34	right line
+34	left line
 
 35	.
 36	?
@@ -63,3 +63,8 @@
 55	-
 56	*
 57	/
+
+58	:
+59	%
+
+60	power
