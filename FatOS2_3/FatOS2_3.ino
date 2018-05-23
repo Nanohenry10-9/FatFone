@@ -67,7 +67,7 @@ byte bl = 100;
 byte vol = 50;
 byte aud = 1;
 
-char* appNames[] = {"Phone", "SMS", "Settings", "Contacts", "Calc", "Radio", "Clock", "PONG"};
+char* appNames[] = {"Phone", "SMS", "Settings", "Contacts", "Calc", "Radio", "Clock", "Pong"};
 int appColor[] = {red, green, darkgrey, blue, orange, navy, red, black};
 byte numOfApps = 8;
 #define appHeight 64 // Screen height (320) / 5
@@ -85,23 +85,26 @@ int a = 0;
 
 byte openApp = SCREEN_MENU;
 
-char kpC[] = {'1', '2', '3',
-              '4', '5', '6',
-              '7', '8', '9',
-              '+', '0', '#'
-             };
+char kpC[] = {
+  '1', '2', '3',
+  '4', '5', '6',
+  '7', '8', '9',
+  '+', '0', '#'
+};
 
-byte kpX[] = {18,  61,  104,
-              18,  61,  104,
-              18,  61,  104,
-              18,  61,  104
-             };
+byte kpX[] = {
+  18,  61,  104,
+  18,  61,  104,
+  18,  61,  104,
+  18,  61,  104
+};
 
-byte kpY[] = {20,  20,  20,
-              65,  65,  65,
-              108, 108, 108,
-              150, 150, 150
-             };
+byte kpY[] = {
+  20,  20,  20,
+  65,  65,  65,
+  108, 108, 108,
+  150, 150, 150
+};
 
 char charsL[40] = {"abcdefghijklmnopqrstuvwxyz_.!?,-:UPC"};
 char charsU[40] = {"ABCDEFGHIJKLMNOPQRSTUVWXYZ_.!?,()UPC"};
@@ -111,7 +114,7 @@ char smsMsg[255] = {};
 int smsI = 0;
 int maxSMS = 17;
 
-char time[] = {"12:00"};
+char time[] = {"00:00"};
 uint16_t batt = 100;
 uint16_t oldBatt = 0;
 uint16_t newBatt = 0;
@@ -139,7 +142,7 @@ char psword[] = {"1234"};
 char inputpw[] = {"    "};
 int inputpwindex = 0;
 
-char* settings[4] = {"General", "Battery", "GSM stuff", "Shutdown"};
+char* settings[4] = {"General", "Battery", "Telephony", "Shutdown"};
 byte selectedSet = -1;
 
 struct Contact {
@@ -187,35 +190,35 @@ void setup() {
   analogWrite(TFT_BL, 100);
 
 
-  /*tft.fillScreen(navy); // 191 - 219: only for Hack.lu
-  tft.setCursor(10, 10);
-  tft.setTextSize(5);
-  tft.setTextColor(red);
-  tft.print("H");
-  tft.setTextColor(orange);
-  tft.print("o");
-  tft.setTextColor(yellow);
-  tft.print("w");
-  tft.setTextColor(blue);
-  tft.print("d");
-  tft.setTextColor(green);
-  tft.print("y");
-  tft.setTextColor(cyan);
-  tft.print("!");
-  tft.setCursor(10, 70);
-  tft.setTextColor(white);
-  tft.setTextSize(2);
-  tft.print("Yes, this is a");
-  tft.setCursor(10, 90);
-  tft.print("mobile phone.");
-  tft.setCursor(10, 130);
-  tft.print("Touch the screen!");
-  tft.setCursor(10, 170);
-  tft.print("By the way, the");
-  tft.setCursor(10, 190);
-  tft.print("passcode is XXXX");
-  ts.begin();
-  while (!ts.touched());*/
+  /*tft.fillScreen(navy); // 191 - 219: only for demo
+    tft.setCursor(10, 10);
+    tft.setTextSize(5);
+    tft.setTextColor(red);
+    tft.print("H");
+    tft.setTextColor(orange);
+    tft.print("o");
+    tft.setTextColor(yellow);
+    tft.print("w");
+    tft.setTextColor(blue);
+    tft.print("d");
+    tft.setTextColor(green);
+    tft.print("y");
+    tft.setTextColor(cyan);
+    tft.print("!");
+    tft.setCursor(10, 70);
+    tft.setTextColor(white);
+    tft.setTextSize(2);
+    tft.print("Yes, this is a");
+    tft.setCursor(10, 90);
+    tft.print("mobile phone.");
+    tft.setCursor(10, 130);
+    tft.print("Touch the screen!");
+    tft.setCursor(10, 170);
+    tft.print("By the way, the");
+    tft.setCursor(10, 190);
+    tft.print("passcode is XXXX");
+    ts.begin();
+    while (!ts.touched());*/
 
 
   tft.fillScreen(navy);
@@ -1702,7 +1705,7 @@ int getColor(int r, int g, int b) {
 /*int getTextLength(char text[], int fontS) {
   int length = getChars(text) * (6 * fontS);
   return length;
-}*/
+  }*/
 
 int getChars(char text[]) {
   int chars;

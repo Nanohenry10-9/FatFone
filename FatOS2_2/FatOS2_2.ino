@@ -1,4 +1,4 @@
-// Sketch needs an AVR Arduino board with over 32KB of flash!
+// Sketch needs an AVR mC with >80KB of flash!
 
 #include <Adafruit_ILI9341.h>
 #include <Adafruit_FONA.h>
@@ -193,8 +193,18 @@ void setup() {
     drawText("NO SD CARD", 65, 250, 2, red, navy);
   }
 
+  if (bl > 10) {
+    bl = 10;
+  }
+  if (volume > 10) {
+    volume = 10;
+  }
+  if (audio > 1) {
+    audio = 1;
+  }
+
   blToA = map(bl, 0, 10, 0, 255);
-  for (int i = 0; i <= blToA; i++) {
+  for (int i = 0; i < blToA; i++) {
     analogWrite(TFT_BL, i);
     delay(10);
   }
@@ -1272,15 +1282,19 @@ void drawSMS() {
   tft.setCursor(50, mesLocY[2]);
   tft.print(F("Loading..."));
   for (uint16_t i = 0; i < 50; i++) {
+    Serial.println("SMS loading...");
     fona.readSMS(i, tempBuff1, 21, &lengthBuff);
+    Serial.println("Loaded!");
     if (lengthBuff > 0) {
+      Serial.println("SMS not null, copying...");
       fona.getSMSSender(i, tempBuff2, 21);
-      memcpy(message3, message2, 21 * sizeof(char));
-      memcpy(message2, message1, 21 * sizeof(char));
-      memcpy(message1, tempBuff1, 21 * sizeof(char));
-      memcpy(sender3, sender2, 21 * sizeof(char));
-      memcpy(sender2, sender1, 21 * sizeof(char));
-      memcpy(sender1, tempBuff2, 21 * sizeof(char));
+      memcpy(message3, message2, 21);
+      memcpy(message2, message1, 21);
+      memcpy(message1, tempBuff1, 21);
+      memcpy(sender3, sender2, 21);
+      memcpy(sender2, sender1, 21);
+      memcpy(sender1, tempBuff2, 21);
+      Serial.println("Done");
     }
   }
   tft.setCursor(10, mesLocY[0]);

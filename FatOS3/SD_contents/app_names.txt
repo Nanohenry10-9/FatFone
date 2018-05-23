@@ -1,4 +1,0 @@
-5 Phone
-8 Messages
-8 Settings
-4 More
