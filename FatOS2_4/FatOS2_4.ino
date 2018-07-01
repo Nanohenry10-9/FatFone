@@ -262,7 +262,7 @@ struct TextField {
       changed = 1;
       reset = 0;
     }
-    if (changed) {
+    if (changed && active) {
       int r = 0;
       while (c[r]) r++;
       int dx = (x + w / 2) - (r * s * 6 - s) / 2;
@@ -375,6 +375,7 @@ struct Keypad {
   }
   int kpressed = -1;
   char cpressed = 0;
+  bool prs[15] = {0};
   char update() {
     if (visible) {
       if (ts.touched()) {
@@ -463,7 +464,10 @@ struct Keypad {
               tft.print(c[cp]);
               kpressed = cpressed;
             }
-            if (!mode) kpressed = ktx + kty * 3;
+            if (!mode) {
+              kpressed = ktx + kty * 3;
+              prs[kpressed] = 1;
+            }
           } else {
             if (ty > 260) {
               tft.setTextColor(black);
@@ -487,6 +491,7 @@ struct Keypad {
               tft.setCursor(dx, 220);
               tft.print(ok);
               kpressed = 12;
+              prs[12] = 1;
               switch (okaction) {
                 case ACT_CALL:
                   fonaCall(tf1->getString());
@@ -504,17 +509,19 @@ struct Keypad {
             tft.setTextColor(black);
             tft.print("SPACE");
             kpressed = 13;
+            prs[13] = 1;
           } else {
             tft.setTextSize(2);
             tft.setTextColor(black);
             tft.setCursor(150, 178);
             tft.print("ERASE");
             kpressed = 14;
+            prs[14] = 1;
           }
         }
         if (kpressed != -1) {
           int tmp = kpressed;
-          if (!(tmp <= 12 || tmp == 14)){
+          if (!(tmp <= 12 || tmp == 14)) {
             tmp = -1;
           }
           if (tf1->active && tfset > 0) {
@@ -538,44 +545,46 @@ struct Keypad {
         draw();
         cpressed = 0;
       } else if (kpressed != -1) {
-        if (kpressed < 12) {
-          int dx, dy;
-          if (!mode) {
-            tft.setTextSize(3);
-            dx = (kpressed % 3) * 53 + 17;
-            dy = (kpressed / 3) * 30 + 205;
-          } else {
-            tft.setTextSize(2);
-            dx = (kpressed % 3) * 53 + 8;
-            dy = (kpressed / 3) * 30 + 208;
+        for (int i = 0; i < 14; i++) {
+          if (prs[i]) {
+            if (i < 12) {
+              int dx, dy;
+              if (!mode) {
+                tft.setTextSize(3);
+                dx = (i % 3) * 53 + 17;
+                dy = (i / 3) * 30 + 205;
+              } else {
+                tft.setTextSize(2);
+                dx = (i % 3) * 53 + 8;
+                dy = (i / 3) * 30 + 208;
+              }
+              tft.setTextColor(black);
+              tft.setCursor(dx, dy);
+              if (!mode) {
+                tft.print(keypad[i]);
+              } else if (!cset) {
+                tft.print(charpad1[i]);
+              } else {
+                tft.print(charpad2[i]);
+              }
+            } else if (i == 12) {
+              tft.setTextColor(white);
+              tft.setTextSize(3);
+              tft.setCursor(164, 220);
+              tft.print(ok);
+            } else if (i == 13) {
+              tft.setCursor(30, 178);
+              tft.setTextSize(2);
+              tft.setTextColor(white);
+              tft.print("SPACE");
+            } else if (i == 14) {
+              tft.setTextSize(2);
+              tft.setTextColor(white);
+              tft.setCursor(150, 178);
+              tft.print("ERASE");
+            }
+            prs[i] = 0;
           }
-          tft.setTextColor(black);
-          tft.setCursor(dx, dy);
-          if (!mode) {
-            tft.print(keypad[kpressed]);
-          } else if (!cset) {
-            tft.print(charpad1[kpressed]);
-          } else {
-            tft.print(charpad2[kpressed]);
-          }
-        } else if (kpressed == 12) {
-          tft.setTextColor(white);
-          tft.setTextSize(3);
-          int r = 0;
-          while (ok[r]) r++;
-          int dx = 200 - (r * 3 * 6) / 2;
-          tft.setCursor(dx, 220);
-          tft.print(ok);
-        } else if (kpressed == 13) {
-          tft.setCursor(30, 178);
-          tft.setTextSize(2);
-          tft.setTextColor(white);
-          tft.print("SPACE");
-        } else if (kpressed == 14) {
-          tft.setTextSize(2);
-          tft.setTextColor(white);
-          tft.setCursor(150, 178);
-          tft.print("ERASE");
         }
         kpressed = -1;
       }
@@ -756,6 +765,8 @@ void draw(int a) {
   }
   btns[0] = btnnull;
   kp.undraw();
+  textfield1.active = 0;
+  textfield2.active = 0;
   switch (a) {
     case MENU:
       {
